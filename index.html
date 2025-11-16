@@ -1,115 +1,185 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
-<meta charset="UTF-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>CAD Viewer</title>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>CRIS CAD Viewer</title>
 
-<style>
-  body {
-    margin: 0;
-    background: #e4e7ef;
-    color: #111;
-    font-family: Arial, sans-serif;
-    overflow: hidden;
-  }
+    <style>
+        /* ---------- GLOBAL ---------- */
+        body {
+            margin: 0;
+            overflow: hidden;
+            background: #e9edf3;
+            font-family: "Inter", Arial, sans-serif;
+            color: #1b1b1c;
+        }
 
-  .viewer-panel {
-    position: absolute;
-    top: 0;
-    left: 0;
-    right: 0;
-    bottom: 0;
+        a {
+            color: inherit;
+            text-decoration: none;
+        }
 
-    /* LIGHT BACKGROUND */
-    background: radial-gradient(circle at top, #fdfdfd 0, #dfe4ee 40%, #c7ced9 100%);
-  }
+        /* ---------- TOP NAVBAR ---------- */
+        .topbar {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 62px;
+            background: rgba(245, 245, 255, 0.5);
+            backdrop-filter: blur(14px);
+            border-bottom: 1px solid rgba(140, 148, 170, 0.4);
+            display: flex;
+            align-items: center;
+            padding: 0 20px;
+            z-index: 20;
+        }
 
-  #viewer-canvas {
-    width: 100%;
-    height: 100%;
-    display: block;
-  }
+        .topbar img {
+            height: 42px;
+            margin-right: 15px;
+        }
 
-  .ui-panel {
-    position: absolute;
-    top: 10px;
-    left: 10px;
-    padding: 12px;
-    background: rgba(245, 245, 255, 0.7);
-    backdrop-filter: blur(8px);
-    border-radius: 8px;
-    border: 1px solid #b2b8c8;
-    color: #000;
-  }
+        .topbar-title {
+            font-size: 22px;
+            font-weight: 600;
+            letter-spacing: 0.4px;
+        }
 
-  .ui-panel h2 {
-    margin: 0 0 6px 0;
-    font-size: 15px;
-  }
+        /* ---------- SIDEBAR PANEL ---------- */
+        .sidebar {
+            width: 240px;
+            position: absolute;
+            top: 78px;
+            left: 12px;
+            background: rgba(255, 255, 255, 0.45);
+            backdrop-filter: blur(12px);
+            border-radius: 14px;
+            padding: 15px 18px;
+            border: 1px solid rgba(120, 130, 150, 0.35);
+            box-shadow: 0 8px 25px rgba(0, 0, 0, 0.15);
+            z-index: 15;
+        }
 
-  .ui-panel label,
-  .ui-panel button {
-    display: block;
-    margin-top: 6px;
-  }
+        .sidebar h2 {
+            margin-top: 0;
+            font-size: 17px;
+            margin-bottom: 12px;
+            font-weight: 600;
+        }
 
-  button {
-    padding: 7px 11px;
-    background: #e0e3ec;
-    border: 1px solid #697396;
-    color: #111;
-    border-radius: 5px;
-    cursor: pointer;
-  }
+        .sidebar label {
+            display: block;
+            margin-top: 10px;
+            font-size: 13px;
+            opacity: 0.85;
+        }
 
-  button.active {
-    background: #4c5eff;
-    color: white;
-  }
+        .sidebar span {
+            float: right;
+            opacity: 0.9;
+        }
 
-  #errorText {
-    color: #d11;
-    font-weight: bold;
-    display: none;
-  }
-</style>
+        /* ---------- BUTTONS ---------- */
+        button {
+            width: 100%;
+            margin-top: 8px;
+            padding: 10px;
+            font-size: 13px;
+            background: #dfe3ee;
+            border: 1px solid #7f889f;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: 0.2s ease;
+        }
+
+        button:hover {
+            background: #cfd6e5;
+            transform: translateY(-1px);
+        }
+
+        button.active {
+            background: #4c5eff;
+            color: white;
+            border-color: #2830cc;
+        }
+
+        /* ---------- TOGGLES ---------- */
+        .sidebar input[type="checkbox"] {
+            transform: scale(1.2);
+            margin-right: 6px;
+            cursor: pointer;
+        }
+
+        /* ---------- CANVAS ---------- */
+        #viewer-canvas {
+            width: 100%;
+            height: 100vh;
+            display: block;
+        }
+
+        .viewer-panel {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            /* LIGHT PREMIUM BACKGROUND */
+            background: radial-gradient(circle at top, #fafcff 0, #dfe4ee 40%, #c7ced9 100%);
+        }
+
+        /* ---------- ERROR TEXT ---------- */
+        #errorText {
+            display: none;
+            color: #dd2222;
+            font-weight: 600;
+            margin-top: 6px;
+        }
+    </style>
 </head>
 
 <body>
 
-<div class="viewer-panel">
-  <canvas id="viewer-canvas"></canvas>
-</div>
+    <!-- TOPBAR WITH LOGO -->
+    <div class="topbar">
+        <img src="cris.png" alt="Cris Logo">
+        <div class="topbar-title">CRIS CAD Viewer</div>
+    </div>
 
-<!-- UI PANEL -->
-<div class="ui-panel">
-  <h2 id="modelTitle">Model Viewer</h2>
+    <!-- 3D Canvas -->
+    <div class="viewer-panel">
+        <canvas id="viewer-canvas"></canvas>
+    </div>
 
-  <label>Status: <span id="statusText">Idle</span></label>
-  <label style="color:#c00;" id="errorText"></label>
+    <!-- SIDEBAR -->
+    <div class="sidebar">
+        <h2 id="modelTitle">Model Viewer</h2>
 
-  <label>File: <span id="fileName">None</span></label>
-  <label>Bounds: <span id="boundsLabel">-</span></label>
-  <label>Triangles: <span id="trianglesLabel">-</span></label>
-  <label>Polygons: <span id="polyCount">-</span></label>
-  <label>Environment: <span id="envLabel">Daylight</span></label>
+        <label>Status <span id="statusText">Idle</span></label>
+        <label id="errorText"></label>
 
-  <button id="resetViewBtn">Reset View</button>
-  <button id="autoRotateBtn">Auto Rotate</button>
-  <button id="wireframeBtn">Wireframe</button>
-  <button id="bgToggleBtn">Background</button>
+        <label>File <span id="fileName">None</span></label>
+        <label>Bounds <span id="boundsLabel">-</span></label>
+        <label>Triangles <span id="trianglesLabel">-</span></label>
+        <label>Polygons <span id="polyCount">-</span></label>
+        <label>Environment <span id="envLabel">Daylight</span></label>
 
-  <!-- DEFAULTS UPDATED: grid OFF, shadows OFF -->
-  <label><input type="checkbox" id="gridToggle" /> Grid</label>
-  <label><input type="checkbox" id="shadowToggle" /> Shadows</label>
+        <button id="resetViewBtn">Reset View</button>
+        <button id="autoRotateBtn">Auto Rotate</button>
+        <button id="wireframeBtn">Wireframe</button>
+        <button id="bgToggleBtn">Toggle Background</button>
 
-  <br>
-  <input type="file" id="fileInput" />
-</div>
+        <label><input type="checkbox" id="gridToggle"> Grid</label>
+        <label><input type="checkbox" id="shadowToggle"> Shadows</label>
 
-<!-- Import map -->
-<script type="importmap">
+        <br>
+        <input type="file" id="fileInput">
+    </div>
+
+    <!-- IMPORT MAP -->
+    <script type="importmap">
 {
   "imports": {
     "three": "https://cdn.jsdelivr.net/npm/three@0.165.0/build/three.module.js"
@@ -117,231 +187,240 @@
 }
 </script>
 
-<!-- MAIN MODULE -->
-<script type="module">
-import * as THREE from "three";
-import { GLTFLoader } from "https://cdn.jsdelivr.net/npm/three@0.165.0/examples/jsm/loaders/GLTFLoader.js";
-import { OrbitControls } from "https://cdn.jsdelivr.net/npm/three@0.165.0/examples/jsm/controls/OrbitControls.js";
+    <!-- MAIN JS -->
+    <script type="module">
+        import * as THREE from "three";
+        import { OrbitControls } from "https://cdn.jsdelivr.net/npm/three@0.165.0/examples/jsm/controls/OrbitControls.js";
+        import { GLTFLoader } from "https://cdn.jsdelivr.net/npm/three@0.165.0/examples/jsm/loaders/GLTFLoader.js";
 
-let scene, camera, renderer, controls;
-let model = null;
-let gridHelper = null;
-let floorMesh = null;
-let dirLight = null;
-let autoRotate = false;
-let wireframeEnabled = false;
-let darkBg = false; // LIGHT MODE DEFAULT
+        let scene, camera, renderer, controls;
+        let model = null;
+        let gridHelper = null;
+        let floorMesh = null;
+        let dirLight = null;
+        let autoRotate = false;     // camera auto-rotate toggle
+        let wireframeEnabled = false;
+        let darkBg = false;         // LIGHT MODE DEFAULT
 
-const canvas = document.getElementById("viewer-canvas");
-const statusText = document.getElementById("statusText");
-const fileNameEl = document.getElementById("fileName");
-const boundsLabel = document.getElementById("boundsLabel");
-const trianglesLabel = document.getElementById("trianglesLabel");
-const errorText = document.getElementById("errorText");
-const polyCountEl = document.getElementById("polyCount");
-const envLabel = document.getElementById("envLabel");
-const modelTitleEl = document.getElementById("modelTitle");
+        const canvas = document.getElementById("viewer-canvas");
+        const statusText = document.getElementById("statusText");
+        const fileNameEl = document.getElementById("fileName");
+        const boundsLabel = document.getElementById("boundsLabel");
+        const trianglesLabel = document.getElementById("trianglesLabel");
+        const errorText = document.getElementById("errorText");
+        const polyCountEl = document.getElementById("polyCount");
+        const envLabel = document.getElementById("envLabel");
+        const modelTitleEl = document.getElementById("modelTitle");
 
-function setStatus(msg, isError = false) {
-  statusText.textContent = msg;
-  errorText.style.display = isError ? "block" : "none";
-  errorText.textContent = isError ? msg : "";
-}
+        function setStatus(msg, isError = false) {
+            statusText.textContent = msg;
+            errorText.style.display = isError ? "block" : "none";
+            errorText.textContent = isError ? msg : "";
+        }
 
-function init() {
-  scene = new THREE.Scene();
+        function init() {
+            scene = new THREE.Scene();
 
-  const aspect = canvas.clientWidth / canvas.clientHeight;
-  camera = new THREE.PerspectiveCamera(45, aspect, 0.1, 5000);
-  camera.position.set(150, 120, 150);
+            const aspect = canvas.clientWidth / canvas.clientHeight;
+            camera = new THREE.PerspectiveCamera(45, aspect, 0.1, 5000);
+            camera.position.set(150, 120, 150);
 
-  renderer = new THREE.WebGLRenderer({
-    canvas,
-    antialias: true,
-    alpha: true,
-  });
-  renderer.setPixelRatio(window.devicePixelRatio || 1);
-  renderer.setSize(canvas.clientWidth, canvas.clientHeight, false);
-  renderer.outputEncoding = THREE.sRGBEncoding;
-  renderer.shadowMap.enabled = false; // SHADOWS DEFAULT OFF
+            renderer = new THREE.WebGLRenderer({
+                canvas,
+                antialias: true,
+                alpha: true,
+            });
+            renderer.setPixelRatio(window.devicePixelRatio || 1);
+            renderer.setSize(canvas.clientWidth, canvas.clientHeight, false);
+            renderer.outputEncoding = THREE.sRGBEncoding;
+            renderer.shadowMap.enabled = false; // SHADOWS DEFAULT OFF
 
-  const hemiLight = new THREE.HemisphereLight(0xffffff, 0xd0d0d0, 1.0);
-  hemiLight.position.set(0, 200, 0);
-  scene.add(hemiLight);
+            const hemiLight = new THREE.HemisphereLight(0xffffff, 0xd0d0d0, 1.0);
+            hemiLight.position.set(0, 200, 0);
+            scene.add(hemiLight);
 
-  dirLight = new THREE.DirectionalLight(0xffffff, 0.8);
-  dirLight.position.set(140, 180, 90);
-  dirLight.castShadow = false;
-  scene.add(dirLight);
+            dirLight = new THREE.DirectionalLight(0xffffff, 0.8);
+            dirLight.position.set(140, 180, 90);
+            dirLight.castShadow = false;
+            scene.add(dirLight);
 
-  const floorGeo = new THREE.PlaneGeometry(1000, 1000);
-  const floorMat = new THREE.ShadowMaterial({ opacity: 0.0 });
-  floorMesh = new THREE.Mesh(floorGeo, floorMat);
-  floorMesh.rotation.x = -Math.PI / 2;
-  floorMesh.receiveShadow = false;
-  scene.add(floorMesh);
+            const floorGeo = new THREE.PlaneGeometry(1000, 1000);
+            const floorMat = new THREE.ShadowMaterial({ opacity: 0.0 });
+            floorMesh = new THREE.Mesh(floorGeo, floorMat);
+            floorMesh.rotation.x = -Math.PI / 2;
+            floorMesh.receiveShadow = false;
+            scene.add(floorMesh);
 
-  gridHelper = new THREE.GridHelper(600, 60, 0x777777, 0xcccccc);
-  gridHelper.visible = false; // GRID DEFAULT OFF
-  scene.add(gridHelper);
+            gridHelper = new THREE.GridHelper(600, 60, 0x777777, 0xcccccc);
+            gridHelper.visible = false; // GRID DEFAULT OFF
+            scene.add(gridHelper);
 
-  controls = new OrbitControls(camera, renderer.domElement);
-  controls.enableDamping = true;
-  controls.target.set(0, 60, 0);
+            controls = new OrbitControls(camera, renderer.domElement);
+            controls.enableDamping = true;
+            controls.dampingFactor = 0.06;
+            controls.autoRotate = false;      // start without auto-rotate
+            controls.autoRotateSpeed = 1.5;   // tweak if you want faster/slower
+            controls.target.set(0, 60, 0);
 
-  setBackground(false);
-  window.addEventListener("resize", onWindowResize);
-  animate();
+            setBackground(false);
+            window.addEventListener("resize", onWindowResize);
+            animate();
 
-  loadGLB("models/model.glb");
-}
+            // Default model path
+            loadGLB("models/model.glb");
+        }
 
-function onWindowResize() {
-  camera.aspect = canvas.clientWidth / canvas.clientHeight;
-  camera.updateProjectionMatrix();
-  renderer.setSize(canvas.clientWidth, canvas.clientHeight);
-}
+        function onWindowResize() {
+            camera.aspect = canvas.clientWidth / canvas.clientHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(canvas.clientWidth, canvas.clientHeight);
+        }
 
-function setBackground(isDark) {
-  darkBg = isDark;
-  const viewerPanel = document.querySelector(".viewer-panel");
+        function setBackground(isDark) {
+            darkBg = isDark;
+            const viewerPanel = document.querySelector(".viewer-panel");
 
-  if (isDark) {
-    viewerPanel.style.background =
-      "radial-gradient(circle at top, #171c3b 0, #050713 45%, #02030a 100%)";
-    envLabel.textContent = "Studio";
-  } else {
-    viewerPanel.style.background =
-      "radial-gradient(circle at top, #fdfdfd 0, #dfe4ee 40%, #c7ced9 100%)";
-    envLabel.textContent = "Daylight";
-  }
-}
+            if (isDark) {
+                viewerPanel.style.background =
+                    "radial-gradient(circle at top, #171c3b 0, #050713 45%, #02030a 100%)";
+                envLabel.textContent = "Studio";
+            } else {
+                viewerPanel.style.background =
+                    "radial-gradient(circle at top, #fdfdfd 0, #dfe4ee 40%, #c7ced9 100%)";
+                envLabel.textContent = "Daylight";
+            }
+        }
 
-function animate() {
-  requestAnimationFrame(animate);
+        function animate() {
+            requestAnimationFrame(animate);
 
-  if (autoRotate && model) model.rotation.y += 0.005;
+            // Let OrbitControls handle rotation – this keeps interaction feeling natural
+            controls.autoRotate = autoRotate;
+            controls.update();
 
-  controls.update();
-  renderer.render(scene, camera);
-}
+            renderer.render(scene, camera);
+        }
 
-function clearModel() {
-  if (!model) return;
-  scene.remove(model);
-  model = null;
-}
+        function clearModel() {
+            if (!model) return;
+            scene.remove(model);
+            model = null;
+        }
 
-function fitCameraToObject(object, offset = 1.4) {
-  const box = new THREE.Box3().setFromObject(object);
-  const size = new THREE.Vector3();
-  const center = new THREE.Vector3();
-  box.getSize(size);
-  box.getCenter(center);
+        function fitCameraToObject(object, offset = 1.4) {
+            const box = new THREE.Box3().setFromObject(object);
+            const size = new THREE.Vector3();
+            const center = new THREE.Vector3();
+            box.getSize(size);
+            box.getCenter(center);
 
-  const maxDim = Math.max(size.x, size.y, size.z);
-  const fov = camera.fov * (Math.PI / 180);
-  let cameraZ = Math.abs((maxDim / 2) / Math.tan(fov / 2)) * offset;
+            const maxDim = Math.max(size.x, size.y, size.z);
+            const fov = camera.fov * (Math.PI / 180);
+            let cameraZ = Math.abs((maxDim / 2) / Math.tan(fov / 2)) * offset;
 
-  camera.position.set(center.x + cameraZ, center.y + cameraZ * 0.6, center.z + cameraZ);
-  controls.target.copy(center);
-}
+            camera.position.set(center.x + cameraZ, center.y + cameraZ * 0.6, center.z + cameraZ);
+            controls.target.copy(center);
+        }
 
-function updateStats(object) {
-  let count = 0;
-  object.traverse((child) => {
-    if (child.isMesh) {
-      const geom = child.geometry;
-      if (geom.index) count += geom.index.count / 3;
-      else count += geom.attributes.position.count / 3;
-    }
-  });
+        function updateStats(object) {
+            let count = 0;
+            object.traverse((child) => {
+                if (child.isMesh) {
+                    const geom = child.geometry;
+                    if (geom.index) count += geom.index.count / 3;
+                    else count += geom.attributes.position.count / 3;
+                }
+            });
 
-  trianglesLabel.textContent = count.toLocaleString();
-  polyCountEl.textContent = count.toLocaleString();
-}
+            trianglesLabel.textContent = count.toLocaleString();
+            polyCountEl.textContent = count.toLocaleString();
+        }
 
-function loadGLB(src) {
-  setStatus("Loading model…");
-  clearModel();
+        function loadGLB(src) {
+            setStatus("Loading model…");
+            clearModel();
 
-  const loader = new GLTFLoader();
+            const loader = new GLTFLoader();
 
-  loader.load(
-    src,
-    (gltf) => onModelLoaded(gltf, src),
-    undefined,
-    (err) => {
-      console.error(err);
-      setStatus("Failed to load model", true);
-    }
-  );
-}
+            loader.load(
+                src,
+                (gltf) => onModelLoaded(gltf, src),
+                undefined,
+                (err) => {
+                    console.error(err);
+                    setStatus("Failed to load model", true);
+                }
+            );
+        }
 
-function onModelLoaded(gltf, name) {
-  model = gltf.scene;
-  scene.add(model);
+        function onModelLoaded(gltf, name) {
+            model = gltf.scene;
+            scene.add(model);
 
-  modelTitleEl.textContent = "Design: " + name;
-  fileNameEl.textContent = name;
+            modelTitleEl.textContent = "Design: " + name;
+            fileNameEl.textContent = name;
 
-  fitCameraToObject(model);
-  updateStats(model);
+            fitCameraToObject(model);
+            updateStats(model);
 
-  setStatus("Loaded");
-}
+            setStatus("Loaded");
+        }
 
-document.getElementById("fileInput").addEventListener("change", (e) => {
-  const file = e.target.files[0];
-  if (!file) return;
-  if (!file.name.match(/\.(glb|gltf)$/i)) {
-    setStatus("Only .glb / .gltf supported", true);
-    return;
-  }
+        document.getElementById("fileInput").addEventListener("change", (e) => {
+            const file = e.target.files[0];
+            if (!file) return;
+            if (!file.name.match(/\.(glb|gltf)$/i)) {
+                setStatus("Only .glb / .gltf supported", true);
+                return;
+            }
 
-  const url = URL.createObjectURL(file);
-  loadGLB(url);
-});
+            const url = URL.createObjectURL(file);
+            loadGLB(url);
+        });
 
-document.getElementById("resetViewBtn").addEventListener("click", () => {
-  if (!model) return;
-  autoRotate = false;
-  fitCameraToObject(model);
-});
+        document.getElementById("resetViewBtn").addEventListener("click", () => {
+            if (!model) return;
+            autoRotate = false;
+            document.getElementById("autoRotateBtn").classList.remove("active");
+            fitCameraToObject(model);
+        });
 
-document.getElementById("autoRotateBtn").addEventListener("click", (e) => {
-  autoRotate = !autoRotate;
-  e.target.classList.toggle("active", autoRotate);
-});
+        document.getElementById("autoRotateBtn").addEventListener("click", (e) => {
+            autoRotate = !autoRotate;
+            e.target.classList.toggle("active", autoRotate);
+        });
 
-document.getElementById("wireframeBtn").addEventListener("click", (e) => {
-  wireframeEnabled = !wireframeEnabled;
-  e.target.classList.toggle("active", wireframeEnabled);
+        document.getElementById("wireframeBtn").addEventListener("click", (e) => {
+            wireframeEnabled = !wireframeEnabled;
+            e.target.classList.toggle("active", wireframeEnabled);
 
-  if (model) {
-    model.traverse((child) => {
-      if (child.isMesh) child.material.wireframe = wireframeEnabled;
-    });
-  }
-});
+            if (model) {
+                model.traverse((child) => {
+                    if (child.isMesh && child.material) {
+                        child.material.wireframe = wireframeEnabled;
+                    }
+                });
+            }
+        });
 
-document.getElementById("bgToggleBtn").addEventListener("click", () => {
-  setBackground(!darkBg);
-});
+        document.getElementById("bgToggleBtn").addEventListener("click", () => {
+            setBackground(!darkBg);
+        });
 
-document.getElementById("gridToggle").addEventListener("change", (e) => {
-  gridHelper.visible = e.target.checked;
-});
+        document.getElementById("gridToggle").addEventListener("change", (e) => {
+            if (gridHelper) gridHelper.visible = e.target.checked;
+        });
 
-document.getElementById("shadowToggle").addEventListener("change", (e) => {
-  const on = e.target.checked;
-  dirLight.castShadow = on;
-  renderer.shadowMap.enabled = on;
-  floorMesh.receiveShadow = on;
-});
+        document.getElementById("shadowToggle").addEventListener("change", (e) => {
+            const on = e.target.checked;
+            dirLight.castShadow = on;
+            renderer.shadowMap.enabled = on;
+            floorMesh.receiveShadow = on;
+        });
 
-init();
-</script>
+        init();
+    </script>
 
 </body>
+
 </html>
