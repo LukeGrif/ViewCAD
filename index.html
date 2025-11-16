@@ -8,8 +8,8 @@
 <style>
   body {
     margin: 0;
-    background: #0d0f1a;
-    color: white;
+    background: #e4e7ef;
+    color: #111;
     font-family: Arial, sans-serif;
     overflow: hidden;
   }
@@ -20,7 +20,9 @@
     left: 0;
     right: 0;
     bottom: 0;
-    background: radial-gradient(circle at top, #171c3b 0, #050713 45%, #02030a 100%);
+
+    /* LIGHT BACKGROUND */
+    background: radial-gradient(circle at top, #fdfdfd 0, #dfe4ee 40%, #c7ced9 100%);
   }
 
   #viewer-canvas {
@@ -34,10 +36,11 @@
     top: 10px;
     left: 10px;
     padding: 12px;
-    background: rgba(20, 20, 35, 0.6);
+    background: rgba(245, 245, 255, 0.7);
     backdrop-filter: blur(8px);
     border-radius: 8px;
-    border: 1px solid #4c5eff33;
+    border: 1px solid #b2b8c8;
+    color: #000;
   }
 
   .ui-panel h2 {
@@ -53,19 +56,20 @@
 
   button {
     padding: 7px 11px;
-    background: #2a2f52;
-    border: 1px solid #4c5eff55;
-    color: white;
+    background: #e0e3ec;
+    border: 1px solid #697396;
+    color: #111;
     border-radius: 5px;
     cursor: pointer;
   }
 
   button.active {
     background: #4c5eff;
+    color: white;
   }
 
   #errorText {
-    color: #ff6262;
+    color: #d11;
     font-weight: bold;
     display: none;
   }
@@ -83,27 +87,28 @@
   <h2 id="modelTitle">Model Viewer</h2>
 
   <label>Status: <span id="statusText">Idle</span></label>
-  <label style="color:#ff5f5f;" id="errorText"></label>
+  <label style="color:#c00;" id="errorText"></label>
 
   <label>File: <span id="fileName">None</span></label>
   <label>Bounds: <span id="boundsLabel">-</span></label>
   <label>Triangles: <span id="trianglesLabel">-</span></label>
   <label>Polygons: <span id="polyCount">-</span></label>
-  <label>Environment: <span id="envLabel">Studio</span></label>
+  <label>Environment: <span id="envLabel">Daylight</span></label>
 
   <button id="resetViewBtn">Reset View</button>
   <button id="autoRotateBtn">Auto Rotate</button>
   <button id="wireframeBtn">Wireframe</button>
   <button id="bgToggleBtn">Background</button>
 
-  <label><input type="checkbox" id="gridToggle" checked /> Grid</label>
-  <label><input type="checkbox" id="shadowToggle" checked /> Shadows</label>
+  <!-- DEFAULTS UPDATED: grid OFF, shadows OFF -->
+  <label><input type="checkbox" id="gridToggle" /> Grid</label>
+  <label><input type="checkbox" id="shadowToggle" /> Shadows</label>
 
   <br>
   <input type="file" id="fileInput" />
 </div>
 
-<!-- FIX: Import map so "three" resolves properly -->
+<!-- Import map -->
 <script type="importmap">
 {
   "imports": {
@@ -112,7 +117,7 @@
 }
 </script>
 
-<!-- MAIN MODULE SCRIPT -->
+<!-- MAIN MODULE -->
 <script type="module">
 import * as THREE from "three";
 import { GLTFLoader } from "https://cdn.jsdelivr.net/npm/three@0.165.0/examples/jsm/loaders/GLTFLoader.js";
@@ -125,7 +130,7 @@ let floorMesh = null;
 let dirLight = null;
 let autoRotate = false;
 let wireframeEnabled = false;
-let darkBg = true;
+let darkBg = false; // LIGHT MODE DEFAULT
 
 const canvas = document.getElementById("viewer-canvas");
 const statusText = document.getElementById("statusText");
@@ -158,32 +163,33 @@ function init() {
   renderer.setPixelRatio(window.devicePixelRatio || 1);
   renderer.setSize(canvas.clientWidth, canvas.clientHeight, false);
   renderer.outputEncoding = THREE.sRGBEncoding;
-  renderer.shadowMap.enabled = true;
+  renderer.shadowMap.enabled = false; // SHADOWS DEFAULT OFF
 
-  const hemiLight = new THREE.HemisphereLight(0xffffff, 0x101020, 0.8);
+  const hemiLight = new THREE.HemisphereLight(0xffffff, 0xd0d0d0, 1.0);
   hemiLight.position.set(0, 200, 0);
   scene.add(hemiLight);
 
-  dirLight = new THREE.DirectionalLight(0xffffff, 1.1);
+  dirLight = new THREE.DirectionalLight(0xffffff, 0.8);
   dirLight.position.set(140, 180, 90);
-  dirLight.castShadow = true;
+  dirLight.castShadow = false;
   scene.add(dirLight);
 
   const floorGeo = new THREE.PlaneGeometry(1000, 1000);
-  const floorMat = new THREE.ShadowMaterial({ opacity: 0.28 });
+  const floorMat = new THREE.ShadowMaterial({ opacity: 0.0 });
   floorMesh = new THREE.Mesh(floorGeo, floorMat);
   floorMesh.rotation.x = -Math.PI / 2;
-  floorMesh.receiveShadow = true;
+  floorMesh.receiveShadow = false;
   scene.add(floorMesh);
 
-  gridHelper = new THREE.GridHelper(600, 60, 0x4c5eff, 0x22294a);
+  gridHelper = new THREE.GridHelper(600, 60, 0x777777, 0xcccccc);
+  gridHelper.visible = false; // GRID DEFAULT OFF
   scene.add(gridHelper);
 
   controls = new OrbitControls(camera, renderer.domElement);
   controls.enableDamping = true;
   controls.target.set(0, 60, 0);
 
-  setBackground(true);
+  setBackground(false);
   window.addEventListener("resize", onWindowResize);
   animate();
 
@@ -199,9 +205,16 @@ function onWindowResize() {
 function setBackground(isDark) {
   darkBg = isDark;
   const viewerPanel = document.querySelector(".viewer-panel");
-  viewerPanel.style.background = isDark
-    ? "radial-gradient(circle at top, #171c3b 0, #050713 45%, #02030a 100%)"
-    : "radial-gradient(circle at top, #e6edf8 0, #aebad1 40%, #7c879a 100%)";
+
+  if (isDark) {
+    viewerPanel.style.background =
+      "radial-gradient(circle at top, #171c3b 0, #050713 45%, #02030a 100%)";
+    envLabel.textContent = "Studio";
+  } else {
+    viewerPanel.style.background =
+      "radial-gradient(circle at top, #fdfdfd 0, #dfe4ee 40%, #c7ced9 100%)";
+    envLabel.textContent = "Daylight";
+  }
 }
 
 function animate() {
@@ -248,15 +261,15 @@ function updateStats(object) {
   polyCountEl.textContent = count.toLocaleString();
 }
 
-function loadGLB(srcOrFile) {
+function loadGLB(src) {
   setStatus("Loading model…");
   clearModel();
 
   const loader = new GLTFLoader();
 
   loader.load(
-    srcOrFile,
-    (gltf) => onModelLoaded(gltf, srcOrFile),
+    src,
+    (gltf) => onModelLoaded(gltf, src),
     undefined,
     (err) => {
       console.error(err);
@@ -321,7 +334,10 @@ document.getElementById("gridToggle").addEventListener("change", (e) => {
 });
 
 document.getElementById("shadowToggle").addEventListener("change", (e) => {
-  dirLight.castShadow = e.target.checked;
+  const on = e.target.checked;
+  dirLight.castShadow = on;
+  renderer.shadowMap.enabled = on;
+  floorMesh.receiveShadow = on;
 });
 
 init();
