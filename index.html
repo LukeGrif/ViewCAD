@@ -1,0 +1,972 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8" />
+    <title>3D STEP Model Viewer</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+    <style>
+        :root {
+            --bg: #050713;
+            --bg-alt: #0d1020;
+            --accent: #3f82ff;
+            --accent-soft: rgba(63, 130, 255, 0.15);
+            --border: rgba(255, 255, 255, 0.08);
+            --text: #f5f7ff;
+            --muted: #9ba3c1;
+            --danger: #ff4d6a;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: system-ui, -apple-system, BlinkMacSystemFont, "SF Pro Text", sans-serif;
+            background: radial-gradient(circle at top left, #101637 0, #050713 45%, #000000 100%);
+            color: var(--text);
+            min-height: 100vh;
+            display: flex;
+            align-items: stretch;
+            justify-content: center;
+        }
+
+        .app-shell {
+            margin: 20px;
+            width: min(1400px, 100%);
+            border-radius: 24px;
+            border: 1px solid var(--border);
+            background: linear-gradient(145deg, rgba(14, 19, 40, 0.98), rgba(3, 4, 10, 0.98));
+            box-shadow:
+                0 40px 80px rgba(0, 0, 0, 0.7),
+                0 0 0 1px rgba(255, 255, 255, 0.02);
+            display: grid;
+            grid-template-columns: 1.2fr minmax(260px, 0.33fr);
+            overflow: hidden;
+            position: relative;
+        }
+
+        .app-shell::before,
+        .app-shell::after {
+            content: "";
+            position: absolute;
+            border-radius: 999px;
+            filter: blur(60px);
+            opacity: 0.6;
+            pointer-events: none;
+        }
+
+        .app-shell::before {
+            width: 260px;
+            height: 260px;
+            background: radial-gradient(circle, rgba(87, 156, 255, 0.8), transparent 60%);
+            top: -40px;
+            left: -40px;
+        }
+
+        .app-shell::after {
+            width: 260px;
+            height: 260px;
+            background: radial-gradient(circle, rgba(255, 77, 106, 0.8), transparent 60%);
+            bottom: -60px;
+            right: -40px;
+        }
+
+        .viewer-panel {
+            position: relative;
+            overflow: hidden;
+            border-right: 1px solid var(--border);
+            background: radial-gradient(circle at top, #171c3b 0, #050713 45%, #02030a 100%);
+        }
+
+        #viewer-canvas {
+            width: 100%;
+            height: 100%;
+            display: block;
+            cursor: grab;
+        }
+
+        #viewer-canvas:active {
+            cursor: grabbing;
+        }
+
+        .viewer-overlay {
+            position: absolute;
+            inset: 0;
+            pointer-events: none;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            padding: 16px 18px;
+            z-index: 3;
+        }
+
+        .viewer-badge {
+            align-self: flex-start;
+            padding: 4px 10px;
+            border-radius: 999px;
+            border: 1px solid rgba(151, 179, 255, 0.4);
+            background: linear-gradient(135deg, rgba(9, 13, 40, 0.9), rgba(49, 96, 255, 0.3));
+            font-size: 11px;
+            letter-spacing: 0.12em;
+            text-transform: uppercase;
+            color: #dde5ff;
+            display: flex;
+            gap: 6px;
+            align-items: center;
+        }
+
+        .viewer-badge-dot {
+            width: 6px;
+            height: 6px;
+            border-radius: 50%;
+            background: #6bffb5;
+            box-shadow: 0 0 8px #6bffb5;
+        }
+
+        .viewer-footer {
+            display: flex;
+            justify-content: space-between;
+            gap: 12px;
+            align-items: flex-end;
+        }
+
+        .viewer-meta {
+            pointer-events: auto;
+            backdrop-filter: blur(14px);
+            background: linear-gradient(135deg, rgba(7, 9, 28, 0.9), rgba(18, 26, 69, 0.9));
+            border-radius: 16px;
+            padding: 10px 12px;
+            border: 1px solid rgba(120, 144, 255, 0.35);
+            max-width: 70%;
+        }
+
+        .viewer-meta-title {
+            font-size: 14px;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .viewer-meta-title span {
+            font-size: 10px;
+            text-transform: uppercase;
+            letter-spacing: 0.16em;
+            color: var(--muted);
+            border-radius: 999px;
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            padding: 2px 8px;
+        }
+
+        .viewer-meta-sub {
+            margin-top: 4px;
+            font-size: 12px;
+            color: var(--muted);
+        }
+
+        .viewer-controls-inline {
+            display: flex;
+            gap: 8px;
+            pointer-events: auto;
+        }
+
+        .chip {
+            font-size: 11px;
+            border-radius: 999px;
+            border: 1px solid rgba(255, 255, 255, 0.12);
+            background: radial-gradient(circle at top left, rgba(59, 89, 255, 0.25), rgba(9, 12, 36, 0.95));
+            padding: 6px 10px;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            color: var(--muted);
+        }
+
+        .chip strong {
+            color: var(--text);
+            font-weight: 600;
+        }
+
+        .chip-dot {
+            width: 6px;
+            height: 6px;
+            border-radius: 50%;
+            background: var(--accent);
+        }
+
+        .sidebar {
+            padding: 18px 18px 16px 18px;
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+            background: radial-gradient(circle at top right, #18204a 0, #050713 45%, #02020b 100%);
+            position: relative;
+            z-index: 2;
+        }
+
+        .sidebar-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .title-block h1 {
+            font-size: 18px;
+            font-weight: 600;
+            letter-spacing: 0.03em;
+        }
+
+        .title-block p {
+            margin-top: 4px;
+            font-size: 12px;
+            color: var(--muted);
+        }
+
+        .status-pill {
+            padding: 4px 10px;
+            border-radius: 999px;
+            background: radial-gradient(circle at top, rgba(67, 249, 167, 0.18), rgba(26, 74, 55, 0.4));
+            border: 1px solid rgba(97, 255, 191, 0.4);
+            font-size: 11px;
+            text-transform: uppercase;
+            letter-spacing: 0.14em;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .status-pill-dot {
+            width: 7px;
+            height: 7px;
+            border-radius: 50%;
+            background: #48ffb8;
+            box-shadow: 0 0 6px #48ffb8;
+        }
+
+        .block {
+            border-radius: 18px;
+            border: 1px solid var(--border);
+            background: linear-gradient(145deg, rgba(10, 14, 34, 0.96), rgba(3, 4, 14, 0.98));
+            padding: 12px 12px 10px 12px;
+        }
+
+        .block-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 8px;
+        }
+
+        .block-title {
+            font-size: 12px;
+            text-transform: uppercase;
+            letter-spacing: 0.14em;
+            color: var(--muted);
+        }
+
+        .block-badge {
+            font-size: 11px;
+            padding: 2px 8px;
+            border-radius: 999px;
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            color: var(--muted);
+        }
+
+        .file-info {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 8px;
+            font-size: 12px;
+            color: var(--muted);
+        }
+
+        .file-info-item span {
+            display: block;
+            font-size: 10px;
+            text-transform: uppercase;
+            letter-spacing: 0.12em;
+            margin-bottom: 3px;
+            color: rgba(155, 163, 193, 0.9);
+        }
+
+        .file-name {
+            font-size: 13px;
+            font-weight: 500;
+            color: var(--text);
+            word-break: break-all;
+        }
+
+        .controls-grid {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            margin-top: 4px;
+        }
+
+        .control-row {
+            display: flex;
+            justify-content: space-between;
+            gap: 8px;
+        }
+
+        .btn,
+        .btn-ghost {
+            flex: 1;
+            font-size: 12px;
+            padding: 8px 10px;
+            border-radius: 999px;
+            border: 1px solid rgba(255, 255, 255, 0.12);
+            background: radial-gradient(circle at top left, rgba(100, 143, 255, 0.35), rgba(9, 11, 32, 0.96));
+            color: var(--text);
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 6px;
+            transition: transform 0.08s ease, box-shadow 0.08s ease, border-color 0.08s ease, background 0.08s ease;
+            outline: none;
+        }
+
+        .btn-ghost {
+            background: linear-gradient(145deg, rgba(10, 13, 35, 0.95), rgba(5, 7, 22, 0.98));
+            color: var(--muted);
+        }
+
+        .btn:hover,
+        .btn-ghost:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 8px 16px rgba(0, 0, 0, 0.6);
+            border-color: rgba(131, 169, 255, 0.8);
+        }
+
+        .btn:active,
+        .btn-ghost:active {
+            transform: translateY(0);
+            box-shadow: none;
+        }
+
+        .btn-icon {
+            font-size: 14px;
+        }
+
+        .toggle-row {
+            display: flex;
+            justify-content: space-between;
+            gap: 8px;
+            margin-top: 6px;
+        }
+
+        .toggle {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            font-size: 12px;
+            color: var(--muted);
+            cursor: pointer;
+        }
+
+        .toggle input {
+            appearance: none;
+            width: 28px;
+            height: 16px;
+            border-radius: 999px;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            position: relative;
+            background: rgba(13, 18, 46, 0.9);
+            outline: none;
+            transition: background 0.12s ease, border-color 0.12s ease;
+        }
+
+        .toggle input::after {
+            content: "";
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            background: #e2e6ff;
+            position: absolute;
+            top: 1px;
+            left: 2px;
+            transition: transform 0.12s ease;
+            box-shadow: 0 0 6px rgba(0, 0, 0, 0.5);
+        }
+
+        .toggle input:checked {
+            background: radial-gradient(circle at top, rgba(65, 131, 255, 0.9), rgba(63, 130, 255, 0.6));
+            border-color: rgba(151, 188, 255, 0.9);
+        }
+
+        .toggle input:checked::after {
+            transform: translateX(11px);
+        }
+
+        .file-input-wrapper {
+            margin-top: 6px;
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+            font-size: 11px;
+            color: var(--muted);
+        }
+
+        .file-input {
+            width: 100%;
+            padding: 6px 8px;
+            border-radius: 999px;
+            border: 1px dashed rgba(255, 255, 255, 0.25);
+            background: linear-gradient(120deg, rgba(17, 21, 51, 0.95), rgba(7, 9, 28, 0.95));
+            font-size: 11px;
+            color: var(--muted);
+        }
+
+        .file-input::file-selector-button {
+            margin-right: 8px;
+            border: none;
+            border-radius: 999px;
+            padding: 5px 10px;
+            background: radial-gradient(circle at top left, rgba(100, 143, 255, 0.5), rgba(10, 13, 34, 1));
+            color: var(--text);
+            cursor: pointer;
+            font-size: 11px;
+        }
+
+        .footnote {
+            font-size: 10px;
+            color: var(--muted);
+            opacity: 0.75;
+            margin-top: 2px;
+        }
+
+        .block-footer {
+            margin-top: 6px;
+            display: flex;
+            justify-content: space-between;
+            font-size: 10px;
+            color: var(--muted);
+            opacity: 0.85;
+        }
+
+        .block-footer span {
+            display: flex;
+            align-items: center;
+            gap: 4px;
+        }
+
+        .legend-square {
+            width: 9px;
+            height: 9px;
+            border-radius: 3px;
+            border: 1px solid rgba(255, 255, 255, 0.25);
+            background: radial-gradient(circle at top left, rgba(120, 167, 255, 0.8), rgba(16, 18, 43, 1));
+        }
+
+        .legend-square-secondary {
+            background: radial-gradient(circle at top left, rgba(255, 109, 152, 0.8), rgba(30, 14, 27, 1));
+        }
+
+        .error-text {
+            color: var(--danger);
+            font-size: 11px;
+            margin-top: 4px;
+            display: none;
+        }
+
+        @media (max-width: 900px) {
+            .app-shell {
+                grid-template-columns: 1fr;
+                grid-template-rows: 1.3fr auto;
+            }
+
+            .viewer-panel {
+                min-height: 320px;
+                border-right: none;
+                border-bottom: 1px solid var(--border);
+            }
+
+            .viewer-meta {
+                max-width: 100%;
+            }
+        }
+    </style>
+</head>
+
+<body>
+    <div class="app-shell">
+        <div class="viewer-panel">
+            <canvas id="viewer-canvas"></canvas>
+
+            <div class="viewer-overlay">
+                <div class="viewer-badge">
+                    <span class="viewer-badge-dot"></span>
+                    <span>Interactive CAD Preview</span>
+                </div>
+
+                <div class="viewer-footer">
+                    <div class="viewer-meta">
+                        <div class="viewer-meta-title">
+                            <span>MODEL</span>
+                            <div id="modelTitle">Design Preview</div>
+                        </div>
+                        <div class="viewer-meta-sub" id="modelSubtitle">
+                            Rotate with mouse, scroll to zoom, right-drag to pan.
+                        </div>
+                    </div>
+
+                    <div class="viewer-controls-inline">
+                        <div class="chip">
+                            <span class="chip-dot"></span>
+                            <span><strong id="polyCount">–</strong> faces</span>
+                        </div>
+                        <div class="chip">
+                            <span>Scene</span>
+                            <strong id="envLabel">Studio</strong>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <aside class="sidebar">
+            <div class="sidebar-header">
+                <div class="title-block">
+                    <h1>STEP Model Viewer</h1>
+                    <p>Hosted on GitHub Pages. Powered by Three.js.</p>
+                </div>
+                <div class="status-pill" id="statusPill">
+                    <span class="status-pill-dot"></span>
+                    <span id="statusText">Ready</span>
+                </div>
+            </div>
+
+            <section class="block">
+                <div class="block-header">
+                    <div class="block-title">Source Model</div>
+                    <div class="block-badge">.glb from STEP</div>
+                </div>
+
+                <div class="file-info">
+                    <div class="file-info-item">
+                        <span>File</span>
+                        <div class="file-name" id="fileName">models/model.glb</div>
+                    </div>
+                    <div class="file-info-item">
+                        <span>Units</span>
+                        <div id="unitsLabel">mm (assumed)</div>
+                    </div>
+                    <div class="file-info-item">
+                        <span>Bounds</span>
+                        <div id="boundsLabel">–</div>
+                    </div>
+                    <div class="file-info-item">
+                        <span>Triangles</span>
+                        <div id="trianglesLabel">–</div>
+                    </div>
+                </div>
+
+                <div class="file-input-wrapper">
+                    <input type="file" id="fileInput" class="file-input" accept=".glb,.gltf" />
+                    <div class="footnote">
+                        Load another exported model. The browser never uploads it anywhere –
+                        all processing is local.
+                    </div>
+                    <div id="errorText" class="error-text"></div>
+                </div>
+            </section>
+
+            <section class="block">
+                <div class="block-header">
+                    <div class="block-title">View Controls</div>
+                    <div class="block-badge">Camera &amp; Style</div>
+                </div>
+
+                <div class="controls-grid">
+                    <div class="control-row">
+                        <button class="btn" id="resetViewBtn">
+                            <span class="btn-icon">↺</span>
+                            <span>Reset View</span>
+                        </button>
+                        <button class="btn-ghost" id="autoRotateBtn">
+                            <span class="btn-icon">▶</span>
+                            <span>Auto-rotate</span>
+                        </button>
+                    </div>
+
+                    <div class="control-row">
+                        <button class="btn-ghost" id="wireframeBtn">
+                            <span class="btn-icon">▢</span>
+                            <span>Wireframe</span>
+                        </button>
+                        <button class="btn-ghost" id="bgToggleBtn">
+                            <span class="btn-icon">☾</span>
+                            <span>Toggle BG</span>
+                        </button>
+                    </div>
+
+                    <div class="toggle-row">
+                        <label class="toggle">
+                            <input type="checkbox" id="gridToggle" checked />
+                            <span>Ground grid</span>
+                        </label>
+                        <label class="toggle">
+                            <input type="checkbox" id="shadowToggle" checked />
+                            <span>Soft shadows</span>
+                        </label>
+                    </div>
+                </div>
+
+                <div class="block-footer">
+                    <span>
+                        <span class="legend-square"></span>
+                        Geometry
+                    </span>
+                    <span>
+                        <span class="legend-square legend-square-secondary"></span>
+                        Shadow / floor
+                    </span>
+                </div>
+            </section>
+        </aside>
+    </div>
+
+    <!-- MODULE SCRIPT: Three.js imported correctly, no global THREE issues -->
+    <script type="module">
+        import * as THREE from "https://unpkg.com/three@0.165.0/build/three.module.js";
+        import { OrbitControls } from "https://unpkg.com/three@0.165.0/examples/jsm/controls/OrbitControls.js";
+        import { GLTFLoader } from "https://unpkg.com/three@0.165.0/examples/jsm/loaders/GLTFLoader.js";
+
+        let scene, camera, renderer, controls;
+        let model = null;
+        let gridHelper = null;
+        let floorMesh = null;
+        let dirLight = null;
+        let autoRotate = false;
+        let wireframeEnabled = false;
+        let darkBg = true;
+
+        const canvas = document.getElementById("viewer-canvas");
+        const statusText = document.getElementById("statusText");
+        const fileNameEl = document.getElementById("fileName");
+        const boundsLabel = document.getElementById("boundsLabel");
+        const trianglesLabel = document.getElementById("trianglesLabel");
+        const errorText = document.getElementById("errorText");
+        const polyCountEl = document.getElementById("polyCount");
+        const envLabel = document.getElementById("envLabel");
+        const modelTitleEl = document.getElementById("modelTitle");
+
+        function setStatus(msg, isError = false) {
+            statusText.textContent = msg;
+            errorText.style.display = isError ? "block" : "none";
+            errorText.textContent = isError ? msg : "";
+        }
+
+        function init() {
+            scene = new THREE.Scene();
+
+            const aspect = canvas.clientWidth / canvas.clientHeight || 1;
+            camera = new THREE.PerspectiveCamera(45, aspect, 0.1, 5000);
+            camera.position.set(150, 120, 150);
+
+            renderer = new THREE.WebGLRenderer({
+                canvas,
+                antialias: true,
+                alpha: true,
+            });
+            renderer.setPixelRatio(window.devicePixelRatio || 1);
+            renderer.setSize(canvas.clientWidth, canvas.clientHeight, false);
+            renderer.outputEncoding = THREE.sRGBEncoding;
+            renderer.shadowMap.enabled = true;
+            renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+
+            const hemiLight = new THREE.HemisphereLight(0xffffff, 0x101020, 0.8);
+            hemiLight.position.set(0, 200, 0);
+            scene.add(hemiLight);
+
+            dirLight = new THREE.DirectionalLight(0xffffff, 1.1);
+            dirLight.position.set(140, 180, 90);
+            dirLight.castShadow = true;
+            dirLight.shadow.mapSize.set(2048, 2048);
+            dirLight.shadow.camera.near = 10;
+            dirLight.shadow.camera.far = 800;
+            dirLight.shadow.camera.left = -200;
+            dirLight.shadow.camera.right = 200;
+            dirLight.shadow.camera.top = 200;
+            dirLight.shadow.camera.bottom = -200;
+            scene.add(dirLight);
+
+            const floorGeo = new THREE.PlaneGeometry(1000, 1000);
+            const floorMat = new THREE.ShadowMaterial({ opacity: 0.28 });
+            floorMesh = new THREE.Mesh(floorGeo, floorMat);
+            floorMesh.rotation.x = -Math.PI / 2;
+            floorMesh.position.y = 0;
+            floorMesh.receiveShadow = true;
+            scene.add(floorMesh);
+
+            gridHelper = new THREE.GridHelper(600, 60, 0x4c5eff, 0x22294a);
+            gridHelper.position.y = 0.001;
+            scene.add(gridHelper);
+
+            controls = new OrbitControls(camera, renderer.domElement);
+            controls.enableDamping = true;
+            controls.dampingFactor = 0.06;
+            controls.rotateSpeed = 0.9;
+            controls.zoomSpeed = 1.0;
+            controls.panSpeed = 0.9;
+            controls.target.set(0, 60, 0);
+
+            setBackground(true);
+            window.addEventListener("resize", onWindowResize);
+            animate();
+
+            // Load your default model here:
+            loadGLB("models/model.glb");
+        }
+
+        function onWindowResize() {
+            const width = canvas.clientWidth;
+            const height = canvas.clientHeight || 1;
+
+            camera.aspect = width / height;
+            camera.updateProjectionMatrix();
+            renderer.setSize(width, height, false);
+        }
+
+        function setBackground(isDark) {
+            darkBg = isDark;
+            const viewerPanel = document.querySelector(".viewer-panel");
+            if (isDark) {
+                viewerPanel.style.background =
+                    "radial-gradient(circle at top, #171c3b 0, #050713 45%, #02030a 100%)";
+                envLabel.textContent = "Studio";
+            } else {
+                viewerPanel.style.background =
+                    "radial-gradient(circle at top, #e6edf8 0, #aebad1 40%, #7c879a 100%)";
+                envLabel.textContent = "Daylight";
+            }
+        }
+
+        function animate() {
+            requestAnimationFrame(animate);
+
+            if (autoRotate && model) {
+                model.rotation.y += 0.005;
+            }
+
+            controls.update();
+            renderer.render(scene, camera);
+        }
+
+        function clearModel() {
+            if (model) {
+                scene.remove(model);
+                model.traverse((child) => {
+                    if (child.isMesh) {
+                        child.geometry.dispose();
+                        const mats = Array.isArray(child.material)
+                            ? child.material
+                            : [child.material];
+                        mats.forEach((m) => m && m.dispose && m.dispose());
+                    }
+                });
+                model = null;
+            }
+        }
+
+        function fitCameraToObject(object, offset = 1.4) {
+            const box = new THREE.Box3().setFromObject(object);
+            const size = new THREE.Vector3();
+            const center = new THREE.Vector3();
+            box.getSize(size);
+            box.getCenter(center);
+
+            const maxDim = Math.max(size.x, size.y, size.z);
+            const fov = camera.fov * (Math.PI / 180);
+            let cameraZ = Math.abs((maxDim / 2) / Math.tan(fov / 2)) * offset;
+            cameraZ = Math.min(cameraZ, 2000);
+
+            camera.position.set(center.x + cameraZ, center.y + cameraZ * 0.6, center.z + cameraZ);
+            controls.target.copy(center);
+            controls.update();
+
+            if (floorMesh) {
+                floorMesh.position.y = box.min.y - 0.002;
+            }
+
+            const dimsLabel =
+                size.x.toFixed(1) + " × " + size.y.toFixed(1) + " × " + size.z.toFixed(1) + " (approx)";
+            boundsLabel.textContent = dimsLabel;
+        }
+
+        function updateStats(object) {
+            let triangleCount = 0;
+            object.traverse((child) => {
+                if (child.isMesh && child.geometry) {
+                    const geom = child.geometry;
+                    if (geom.index) {
+                        triangleCount += geom.index.count / 3;
+                    } else if (geom.attributes.position) {
+                        triangleCount += geom.attributes.position.count / 3;
+                    }
+                }
+            });
+
+            trianglesLabel.textContent = triangleCount.toLocaleString();
+            polyCountEl.textContent = triangleCount.toLocaleString();
+        }
+
+        function setWireframe(enabled) {
+            wireframeEnabled = enabled;
+            if (!model) return;
+            model.traverse((child) => {
+                if (child.isMesh && child.material) {
+                    const mats = Array.isArray(child.material)
+                        ? child.material
+                        : [child.material];
+                    mats.forEach((m) => {
+                        if (m && "wireframe" in m) {
+                            m.wireframe = enabled;
+                        }
+                    });
+                }
+            });
+        }
+
+        function setShadows(enabled) {
+            if (dirLight) dirLight.castShadow = enabled;
+            if (floorMesh) floorMesh.receiveShadow = enabled;
+            if (!model) return;
+            model.traverse((child) => {
+                if (child.isMesh) {
+                    child.castShadow = enabled;
+                    child.receiveShadow = enabled;
+                }
+            });
+        }
+
+        function setGrid(enabled) {
+            if (gridHelper) gridHelper.visible = enabled;
+        }
+
+        function loadGLB(srcOrFile) {
+            setStatus("Loading model…");
+            errorText.style.display = "none";
+
+            clearModel();
+            const loader = new GLTFLoader();
+
+            if (typeof srcOrFile === "string") {
+                loader.load(
+                    srcOrFile,
+                    (gltf) => onModelLoaded(gltf, srcOrFile),
+                    undefined,
+                    (err) => {
+                        console.error(err);
+                        setStatus("Failed to load model", true);
+                    }
+                );
+            } else {
+                const url = URL.createObjectURL(srcOrFile);
+                loader.load(
+                    url,
+                    (gltf) => {
+                        onModelLoaded(gltf, srcOrFile.name);
+                        URL.revokeObjectURL(url);
+                    },
+                    undefined,
+                    (err) => {
+                        console.error(err);
+                        URL.revokeObjectURL(url);
+                        setStatus("Failed to load file", true);
+                    }
+                );
+            }
+        }
+
+        function onModelLoaded(gltf, sourceLabel) {
+            model = gltf.scene || gltf.scenes[0];
+            if (!model) {
+                setStatus("Model loaded but no scene found", true);
+                return;
+            }
+
+            model.traverse((child) => {
+                if (child.isMesh) {
+                    child.castShadow = true;
+                    child.receiveShadow = true;
+                    const mats = Array.isArray(child.material)
+                        ? child.material
+                        : [child.material];
+                    mats.forEach((m) => {
+                        if (m && m.color) {
+                            m.color.convertSRGBToLinear();
+                        }
+                    });
+                }
+            });
+
+            scene.add(model);
+            fitCameraToObject(model);
+            updateStats(model);
+            setWireframe(wireframeEnabled);
+            setShadows(document.getElementById("shadowToggle").checked);
+
+            fileNameEl.textContent =
+                typeof sourceLabel === "string" ? sourceLabel : "model.glb";
+            modelTitleEl.textContent = "Design: " + sourceLabel;
+            setStatus("Loaded");
+        }
+
+        // UI events
+        document.getElementById("fileInput").addEventListener("change", (e) => {
+            const file = e.target.files[0];
+            if (!file) return;
+            if (!file.name.match(/\.(glb|gltf)$/i)) {
+                setStatus("Only .glb / .gltf supported here", true);
+                return;
+            }
+            loadGLB(file);
+        });
+
+        document.getElementById("resetViewBtn").addEventListener("click", () => {
+            if (!model) return;
+            autoRotate = false;
+            document.getElementById("autoRotateBtn").classList.remove("active");
+            fitCameraToObject(model);
+            setStatus("View reset");
+        });
+
+        document.getElementById("autoRotateBtn").addEventListener("click", (e) => {
+            autoRotate = !autoRotate;
+            e.currentTarget.classList.toggle("active", autoRotate);
+            setStatus(autoRotate ? "Auto-rotate on" : "Auto-rotate off");
+        });
+
+        document.getElementById("wireframeBtn").addEventListener("click", (e) => {
+            wireframeEnabled = !wireframeEnabled;
+            setWireframe(wireframeEnabled);
+            e.currentTarget.classList.toggle("active", wireframeEnabled);
+            setStatus(wireframeEnabled ? "Wireframe enabled" : "Wireframe disabled");
+        });
+
+        document.getElementById("bgToggleBtn").addEventListener("click", () => {
+            setBackground(!darkBg);
+            setStatus("Background toggled");
+        });
+
+        document.getElementById("gridToggle").addEventListener("change", (e) => {
+            setGrid(e.target.checked);
+        });
+
+        document.getElementById("shadowToggle").addEventListener("change", (e) => {
+            setShadows(e.target.checked);
+        });
+
+        // Start
+        init();
+    </script>
+</body>
+
+</html>
