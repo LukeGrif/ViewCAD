@@ -50,14 +50,14 @@
 
         /* ---------- SIDEBAR PANEL ---------- */
         .sidebar {
-            width: 240px;
+            width: 260px;
             position: absolute;
             top: 78px;
             left: 12px;
             background: rgba(255, 255, 255, 0.45);
             backdrop-filter: blur(12px);
             border-radius: 14px;
-            padding: 15px 18px;
+            padding: 15px 18px 16px 18px;
             border: 1px solid rgba(120, 130, 150, 0.35);
             box-shadow: 0 8px 25px rgba(0, 0, 0, 0.15);
             z-index: 15;
@@ -66,18 +66,25 @@
         .sidebar h2 {
             margin-top: 0;
             font-size: 17px;
-            margin-bottom: 12px;
+            margin-bottom: 10px;
             font-weight: 600;
+        }
+
+        .sidebar h3 {
+            font-size: 14px;
+            margin: 14px 0 6px 0;
+            font-weight: 600;
+            opacity: 0.9;
         }
 
         .sidebar label {
             display: block;
-            margin-top: 10px;
+            margin-top: 6px;
             font-size: 13px;
-            opacity: 0.85;
+            opacity: 0.9;
         }
 
-        .sidebar span {
+        .sidebar label span {
             float: right;
             opacity: 0.9;
         }
@@ -86,13 +93,13 @@
         button {
             width: 100%;
             margin-top: 8px;
-            padding: 10px;
+            padding: 9px 10px;
             font-size: 13px;
-            background: #dfe3ee;
+            background: #e0e3ec;
             border: 1px solid #7f889f;
             border-radius: 8px;
             cursor: pointer;
-            transition: 0.2s ease;
+            transition: 0.18s ease;
         }
 
         button:hover {
@@ -106,9 +113,29 @@
             border-color: #2830cc;
         }
 
+        /* ---------- MODEL LIST ---------- */
+        .model-buttons {
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+            margin-top: 4px;
+        }
+
+        .model-buttons button {
+            width: 100%;
+            text-align: left;
+            font-size: 13px;
+            background: #f2f4fb;
+        }
+
+        .model-buttons button.active {
+            background: #4c5eff;
+            color: #fff;
+        }
+
         /* ---------- TOGGLES ---------- */
         .sidebar input[type="checkbox"] {
-            transform: scale(1.2);
+            transform: scale(1.1);
             margin-right: 6px;
             cursor: pointer;
         }
@@ -126,7 +153,6 @@
             left: 0;
             width: 100%;
             height: 100%;
-            /* LIGHT PREMIUM BACKGROUND */
             background: radial-gradient(circle at top, #fafcff 0, #dfe4ee 40%, #c7ced9 100%);
         }
 
@@ -135,7 +161,13 @@
             display: none;
             color: #dd2222;
             font-weight: 600;
-            margin-top: 6px;
+            margin-top: 4px;
+        }
+
+        /* Small spacing before file input */
+        #fileInput {
+            margin-top: 8px;
+            width: 100%;
         }
     </style>
 </head>
@@ -166,6 +198,10 @@
         <label>Polygons <span id="polyCount">-</span></label>
         <label>Environment <span id="envLabel">Daylight</span></label>
 
+        <h3>Models</h3>
+        <div id="modelButtons" class="model-buttons"></div>
+
+        <h3>View</h3>
         <button id="resetViewBtn">Reset View</button>
         <button id="autoRotateBtn">Auto Rotate</button>
         <button id="wireframeBtn">Wireframe</button>
@@ -174,8 +210,8 @@
         <label><input type="checkbox" id="gridToggle"> Grid</label>
         <label><input type="checkbox" id="shadowToggle"> Shadows</label>
 
-        <br>
-        <input type="file" id="fileInput">
+        <h3>Load Local</h3>
+        <input type="file" id="fileInput" accept=".glb,.gltf">
     </div>
 
     <!-- IMPORT MAP -->
@@ -193,14 +229,22 @@
         import { OrbitControls } from "https://cdn.jsdelivr.net/npm/three@0.165.0/examples/jsm/controls/OrbitControls.js";
         import { GLTFLoader } from "https://cdn.jsdelivr.net/npm/three@0.165.0/examples/jsm/loaders/GLTFLoader.js";
 
+        /* ---------- CONFIG: LIST YOUR GLB FILES HERE ---------- */
+        const MODELS = [
+            { id: "default", label: "Default Model", path: "models/model.glb" },
+            { id: "alt1", label: "Model 2", path: "models/Assembly.glb" },
+            { id: "alt2", label: "Model 3", path: "models/model3.glb" }
+        ];
+
         let scene, camera, renderer, controls;
         let model = null;
         let gridHelper = null;
         let floorMesh = null;
         let dirLight = null;
-        let autoRotate = false;     // camera auto-rotate toggle
+        let autoRotate = false;
         let wireframeEnabled = false;
-        let darkBg = false;         // LIGHT MODE DEFAULT
+        let darkBg = false; // LIGHT MODE DEFAULT
+        let activeModelId = null;
 
         const canvas = document.getElementById("viewer-canvas");
         const statusText = document.getElementById("statusText");
@@ -211,6 +255,7 @@
         const polyCountEl = document.getElementById("polyCount");
         const envLabel = document.getElementById("envLabel");
         const modelTitleEl = document.getElementById("modelTitle");
+        const modelButtonsContainer = document.getElementById("modelButtons");
 
         function setStatus(msg, isError = false) {
             statusText.textContent = msg;
@@ -218,6 +263,42 @@
             errorText.textContent = isError ? msg : "";
         }
 
+        /* ---------- INIT MODEL MENU ---------- */
+        function initModelMenu() {
+            modelButtonsContainer.innerHTML = "";
+            MODELS.forEach((m) => {
+                const btn = document.createElement("button");
+                btn.textContent = m.label;
+                btn.dataset.modelId = m.id;
+                btn.addEventListener("click", () => {
+                    loadModelFromMenu(m);
+                });
+                modelButtonsContainer.appendChild(btn);
+            });
+        }
+
+        function clearModelButtonActive() {
+            const buttons = modelButtonsContainer.querySelectorAll("button");
+            buttons.forEach((b) => b.classList.remove("active"));
+        }
+
+        function setModelButtonActive(modelId) {
+            activeModelId = modelId;
+            clearModelButtonActive();
+            const btn = modelButtonsContainer.querySelector(
+                `button[data-model-id="${modelId}"]`
+            );
+            if (btn) btn.classList.add("active");
+        }
+
+        function loadModelFromMenu(modelDef) {
+            autoRotate = false;
+            document.getElementById("autoRotateBtn").classList.remove("active");
+            loadGLB(modelDef.path, modelDef.label);
+            setModelButtonActive(modelDef.id);
+        }
+
+        /* ---------- SCENE SETUP ---------- */
         function init() {
             scene = new THREE.Scene();
 
@@ -235,14 +316,44 @@
             renderer.outputEncoding = THREE.sRGBEncoding;
             renderer.shadowMap.enabled = false; // SHADOWS DEFAULT OFF
 
-            const hemiLight = new THREE.HemisphereLight(0xffffff, 0xd0d0d0, 1.0);
-            hemiLight.position.set(0, 200, 0);
+            // === BRIGHT, EVEN LIGHTING SETUP ===
+
+            // Main directional light (used for shadows toggle)
+            dirLight = new THREE.DirectionalLight(0xffffff, 1.4);
+            dirLight.position.set(200, 300, 200);
+            dirLight.castShadow = false;
+            dirLight.shadow.radius = 6;
+            dirLight.shadow.bias = -0.0002;
+            scene.add(dirLight);
+
+            // Strong ambient so all faces get base light
+            const ambLight = new THREE.AmbientLight(0xffffff, 1.4);
+            scene.add(ambLight);
+
+            // Hemisphere light: sky + ground lighting for top & bottom
+            const hemiLight = new THREE.HemisphereLight(0xffffff, 0xffffff, 0.9);
+            hemiLight.position.set(0, 1, 0);
             scene.add(hemiLight);
 
-            dirLight = new THREE.DirectionalLight(0xffffff, 0.8);
-            dirLight.position.set(140, 180, 90);
-            dirLight.castShadow = false;
-            scene.add(dirLight);
+            // Key light
+            const key = new THREE.DirectionalLight(0xffffff, 1.0);
+            key.position.set(150, 250, 200);
+            scene.add(key);
+
+            // Fill light (opposite side)
+            const fill = new THREE.DirectionalLight(0xffffff, 0.8);
+            fill.position.set(-200, 150, -100);
+            scene.add(fill);
+
+            // Rim light (back)
+            const rim = new THREE.DirectionalLight(0xffffff, 0.7);
+            rim.position.set(0, 220, -220);
+            scene.add(rim);
+
+            // Bottom light to brighten underside of the model
+            const bottomLight = new THREE.DirectionalLight(0xffffff, 0.7);
+            bottomLight.position.set(0, -250, 0);
+            scene.add(bottomLight);
 
             const floorGeo = new THREE.PlaneGeometry(1000, 1000);
             const floorMat = new THREE.ShadowMaterial({ opacity: 0.0 });
@@ -258,16 +369,18 @@
             controls = new OrbitControls(camera, renderer.domElement);
             controls.enableDamping = true;
             controls.dampingFactor = 0.06;
-            controls.autoRotate = false;      // start without auto-rotate
-            controls.autoRotateSpeed = 1.5;   // tweak if you want faster/slower
+            controls.autoRotate = false;
+            controls.autoRotateSpeed = 1.5;
             controls.target.set(0, 60, 0);
 
             setBackground(false);
             window.addEventListener("resize", onWindowResize);
             animate();
 
-            // Default model path
-            loadGLB("models/model.glb");
+            initModelMenu();
+            if (MODELS.length > 0) {
+                loadModelFromMenu(MODELS[0]);
+            }
         }
 
         function onWindowResize() {
@@ -286,18 +399,15 @@
                 envLabel.textContent = "Studio";
             } else {
                 viewerPanel.style.background =
-                    "radial-gradient(circle at top, #fdfdfd 0, #dfe4ee 40%, #c7ced9 100%)";
+                    "radial-gradient(circle at top, #fafcff 0, #dfe4ee 40%, #c7ced9 100%)";
                 envLabel.textContent = "Daylight";
             }
         }
 
         function animate() {
             requestAnimationFrame(animate);
-
-            // Let OrbitControls handle rotation – this keeps interaction feeling natural
             controls.autoRotate = autoRotate;
             controls.update();
-
             renderer.render(scene, camera);
         }
 
@@ -336,15 +446,15 @@
             polyCountEl.textContent = count.toLocaleString();
         }
 
-        function loadGLB(src) {
+        function loadGLB(src, displayName = null) {
             setStatus("Loading model…");
             clearModel();
+            clearModelButtonActive();
 
             const loader = new GLTFLoader();
-
             loader.load(
                 src,
-                (gltf) => onModelLoaded(gltf, src),
+                (gltf) => onModelLoaded(gltf, src, displayName),
                 undefined,
                 (err) => {
                     console.error(err);
@@ -353,12 +463,40 @@
             );
         }
 
-        function onModelLoaded(gltf, name) {
+        function onModelLoaded(gltf, src, displayName) {
             model = gltf.scene;
+
+            // 🔁 ORIENTATION FIX – flip model (adjust sign if wrong direction)
+            model.rotation.x = Math.PI / 2;
+
+            // 🔧 MATERIAL / NORMALS FIX – make both sides visible & smooth lighting
+            model.traverse((child) => {
+                if (child.isMesh) {
+                    const geom = child.geometry;
+                    if (geom && geom.computeVertexNormals) {
+                        geom.computeVertexNormals();
+                    }
+
+                    const mats = Array.isArray(child.material)
+                        ? child.material
+                        : [child.material];
+
+                    mats.forEach((m) => {
+                        if (!m) return;
+                        // Make sure backfaces are rendered – no more black underside
+                        m.side = THREE.DoubleSide;
+
+                        // Don't mess with color space here; GLTFLoader already handles it
+                        m.needsUpdate = true;
+                    });
+                }
+            });
+
             scene.add(model);
 
-            modelTitleEl.textContent = "Design: " + name;
-            fileNameEl.textContent = name;
+            const nameLabel = displayName || src;
+            modelTitleEl.textContent = "Design: " + nameLabel;
+            fileNameEl.textContent = src;
 
             fitCameraToObject(model);
             updateStats(model);
@@ -366,6 +504,7 @@
             setStatus("Loaded");
         }
 
+        /* ---------- UI BINDINGS ---------- */
         document.getElementById("fileInput").addEventListener("change", (e) => {
             const file = e.target.files[0];
             if (!file) return;
@@ -375,7 +514,9 @@
             }
 
             const url = URL.createObjectURL(file);
-            loadGLB(url);
+            autoRotate = false;
+            document.getElementById("autoRotateBtn").classList.remove("active");
+            loadGLB(url, file.name);
         });
 
         document.getElementById("resetViewBtn").addEventListener("click", () => {
@@ -397,7 +538,13 @@
             if (model) {
                 model.traverse((child) => {
                     if (child.isMesh && child.material) {
-                        child.material.wireframe = wireframeEnabled;
+                        const mats = Array.isArray(child.material)
+                            ? child.material
+                            : [child.material];
+                        mats.forEach((m) => {
+                            if (!m) return;
+                            if ("wireframe" in m) m.wireframe = wireframeEnabled;
+                        });
                     }
                 });
             }
