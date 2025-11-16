@@ -1,331 +1,331 @@
-<script type="module">
-    import * as THREE from "https://cdn.jsdelivr.net/npm/three@0.165.0/build/three.module.js";
-    import { GLTFLoader } from "https://cdn.jsdelivr.net/npm/three@0.165.0/examples/jsm/loaders/GLTFLoader.js";
-    import { OrbitControls } from "https://cdn.jsdelivr.net/npm/three@0.165.0/examples/jsm/controls/OrbitControls.js";
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>CAD Viewer</title>
 
-    let scene, camera, renderer, controls;
-    let model = null;
-    let gridHelper = null;
-    let floorMesh = null;
-    let dirLight = null;
-    let autoRotate = false;
-    let wireframeEnabled = false;
-    let darkBg = true;
+<style>
+  body {
+    margin: 0;
+    background: #0d0f1a;
+    color: white;
+    font-family: Arial, sans-serif;
+    overflow: hidden;
+  }
 
-    const canvas = document.getElementById("viewer-canvas");
-    const statusText = document.getElementById("statusText");
-    const fileNameEl = document.getElementById("fileName");
-    const boundsLabel = document.getElementById("boundsLabel");
-    const trianglesLabel = document.getElementById("trianglesLabel");
-    const errorText = document.getElementById("errorText");
-    const polyCountEl = document.getElementById("polyCount");
-    const envLabel = document.getElementById("envLabel");
-    const modelTitleEl = document.getElementById("modelTitle");
+  .viewer-panel {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: radial-gradient(circle at top, #171c3b 0, #050713 45%, #02030a 100%);
+  }
 
-    function setStatus(msg, isError = false) {
-        statusText.textContent = msg;
-        errorText.style.display = isError ? "block" : "none";
-        errorText.textContent = isError ? msg : "";
-    }
+  #viewer-canvas {
+    width: 100%;
+    height: 100%;
+    display: block;
+  }
 
-    function init() {
-        scene = new THREE.Scene();
+  .ui-panel {
+    position: absolute;
+    top: 10px;
+    left: 10px;
+    padding: 12px;
+    background: rgba(20, 20, 35, 0.6);
+    backdrop-filter: blur(8px);
+    border-radius: 8px;
+    border: 1px solid #4c5eff33;
+  }
 
-        const aspect = canvas.clientWidth / canvas.clientHeight || 1;
-        camera = new THREE.PerspectiveCamera(45, aspect, 0.1, 5000);
-        camera.position.set(150, 120, 150);
+  .ui-panel h2 {
+    margin: 0 0 6px 0;
+    font-size: 15px;
+  }
 
-        renderer = new THREE.WebGLRenderer({
-            canvas,
-            antialias: true,
-            alpha: true,
-        });
-        renderer.setPixelRatio(window.devicePixelRatio || 1);
-        renderer.setSize(canvas.clientWidth, canvas.clientHeight, false);
-        renderer.outputEncoding = THREE.sRGBEncoding;
-        renderer.shadowMap.enabled = true;
-        renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+  .ui-panel label,
+  .ui-panel button {
+    display: block;
+    margin-top: 6px;
+  }
 
-        const hemiLight = new THREE.HemisphereLight(0xffffff, 0x101020, 0.8);
-        hemiLight.position.set(0, 200, 0);
-        scene.add(hemiLight);
+  button {
+    padding: 7px 11px;
+    background: #2a2f52;
+    border: 1px solid #4c5eff55;
+    color: white;
+    border-radius: 5px;
+    cursor: pointer;
+  }
 
-        dirLight = new THREE.DirectionalLight(0xffffff, 1.1);
-        dirLight.position.set(140, 180, 90);
-        dirLight.castShadow = true;
-        dirLight.shadow.mapSize.set(2048, 2048);
-        dirLight.shadow.camera.near = 10;
-        dirLight.shadow.camera.far = 800;
-        dirLight.shadow.camera.left = -200;
-        dirLight.shadow.camera.right = 200;
-        dirLight.shadow.camera.top = 200;
-        dirLight.shadow.camera.bottom = -200;
-        scene.add(dirLight);
+  button.active {
+    background: #4c5eff;
+  }
 
-        const floorGeo = new THREE.PlaneGeometry(1000, 1000);
-        const floorMat = new THREE.ShadowMaterial({ opacity: 0.28 });
-        floorMesh = new THREE.Mesh(floorGeo, floorMat);
-        floorMesh.rotation.x = -Math.PI / 2;
-        floorMesh.position.y = 0;
-        floorMesh.receiveShadow = true;
-        scene.add(floorMesh);
+  #errorText {
+    color: #ff6262;
+    font-weight: bold;
+    display: none;
+  }
+</style>
+</head>
 
-        gridHelper = new THREE.GridHelper(600, 60, 0x4c5eff, 0x22294a);
-        gridHelper.position.y = 0.001;
-        scene.add(gridHelper);
+<body>
 
-        controls = new OrbitControls(camera, renderer.domElement);
-        controls.enableDamping = true;
-        controls.dampingFactor = 0.06;
-        controls.rotateSpeed = 0.9;
-        controls.zoomSpeed = 1.0;
-        controls.panSpeed = 0.9;
-        controls.target.set(0, 60, 0);
+<div class="viewer-panel">
+  <canvas id="viewer-canvas"></canvas>
+</div>
 
-        setBackground(true);
-        window.addEventListener("resize", onWindowResize);
-        animate();
+<!-- UI PANEL -->
+<div class="ui-panel">
+  <h2 id="modelTitle">Model Viewer</h2>
 
-        loadGLB("models/model.glb");
-    }
+  <label>Status: <span id="statusText">Idle</span></label>
+  <label style="color:#ff5f5f;" id="errorText"></label>
 
-    function onWindowResize() {
-        const width = canvas.clientWidth;
-        const height = canvas.clientHeight || 1;
+  <label>File: <span id="fileName">None</span></label>
+  <label>Bounds: <span id="boundsLabel">-</span></label>
+  <label>Triangles: <span id="trianglesLabel">-</span></label>
+  <label>Polygons: <span id="polyCount">-</span></label>
+  <label>Environment: <span id="envLabel">Studio</span></label>
 
-        camera.aspect = width / height;
-        camera.updateProjectionMatrix();
-        renderer.setSize(width, height, false);
-    }
+  <button id="resetViewBtn">Reset View</button>
+  <button id="autoRotateBtn">Auto Rotate</button>
+  <button id="wireframeBtn">Wireframe</button>
+  <button id="bgToggleBtn">Background</button>
 
-    function setBackground(isDark) {
-        darkBg = isDark;
-        const viewerPanel = document.querySelector(".viewer-panel");
-        if (isDark) {
-            viewerPanel.style.background =
-                "radial-gradient(circle at top, #171c3b 0, #050713 45%, #02030a 100%)";
-            envLabel.textContent = "Studio";
-        } else {
-            viewerPanel.style.background =
-                "radial-gradient(circle at top, #e6edf8 0, #aebad1 40%, #7c879a 100%)";
-            envLabel.textContent = "Daylight";
-        }
-    }
+  <label><input type="checkbox" id="gridToggle" checked /> Grid</label>
+  <label><input type="checkbox" id="shadowToggle" checked /> Shadows</label>
 
-    function animate() {
-        requestAnimationFrame(animate);
+  <br>
+  <input type="file" id="fileInput" />
+</div>
 
-        if (autoRotate && model) {
-            model.rotation.y += 0.005;
-        }
-
-        controls.update();
-        renderer.render(scene, camera);
-    }
-
-    function clearModel() {
-        if (model) {
-            scene.remove(model);
-            model.traverse((child) => {
-                if (child.isMesh) {
-                    child.geometry.dispose();
-                    const mats = Array.isArray(child.material)
-                        ? child.material
-                        : [child.material];
-                    mats.forEach((m) => m && m.dispose && m.dispose());
-                }
-            });
-            model = null;
-        }
-    }
-
-    function fitCameraToObject(object, offset = 1.4) {
-        const box = new THREE.Box3().setFromObject(object);
-        const size = new THREE.Vector3();
-        const center = new THREE.Vector3();
-        box.getSize(size);
-        box.getCenter(center);
-
-        const maxDim = Math.max(size.x, size.y, size.z);
-        const fov = camera.fov * (Math.PI / 180);
-        let cameraZ = Math.abs((maxDim / 2) / Math.tan(fov / 2)) * offset;
-        cameraZ = Math.min(cameraZ, 2000);
-
-        camera.position.set(center.x + cameraZ, center.y + cameraZ * 0.6, center.z + cameraZ);
-        controls.target.copy(center);
-        controls.update();
-
-        if (floorMesh) {
-            floorMesh.position.y = box.min.y - 0.002;
-        }
-
-        const dimsLabel =
-            size.x.toFixed(1) + " × " + size.y.toFixed(1) + " × " + size.z.toFixed(1) + " (approx)";
-        boundsLabel.textContent = dimsLabel;
-    }
-
-    function updateStats(object) {
-        let triangleCount = 0;
-        object.traverse((child) => {
-            if (child.isMesh && child.geometry) {
-                const geom = child.geometry;
-                if (geom.index) {
-                    triangleCount += geom.index.count / 3;
-                } else if (geom.attributes.position) {
-                    triangleCount += geom.attributes.position.count / 3;
-                }
-            }
-        });
-
-        trianglesLabel.textContent = triangleCount.toLocaleString();
-        polyCountEl.textContent = triangleCount.toLocaleString();
-    }
-
-    function setWireframe(enabled) {
-        wireframeEnabled = enabled;
-        if (!model) return;
-        model.traverse((child) => {
-            if (child.isMesh && child.material) {
-                const mats = Array.isArray(child.material)
-                    ? child.material
-                    : [child.material];
-                mats.forEach((m) => {
-                    if (m && "wireframe" in m) {
-                        m.wireframe = enabled;
-                    }
-                });
-            }
-        });
-    }
-
-    function setShadows(enabled) {
-        if (dirLight) dirLight.castShadow = enabled;
-        if (floorMesh) floorMesh.receiveShadow = enabled;
-        if (!model) return;
-        model.traverse((child) => {
-            if (child.isMesh) {
-                child.castShadow = enabled;
-                child.receiveShadow = enabled;
-            }
-        });
-    }
-
-    function setGrid(enabled) {
-        if (gridHelper) gridHelper.visible = enabled;
-    }
-
-    function loadGLB(srcOrFile) {
-        setStatus("Loading model…");
-        errorText.style.display = "none";
-
-        clearModel();
-        const loader = new GLTFLoader();
-
-        if (typeof srcOrFile === "string") {
-            loader.load(
-                srcOrFile,
-                (gltf) => onModelLoaded(gltf, srcOrFile),
-                undefined,
-                (err) => {
-                    console.error(err);
-                    setStatus("Failed to load model", true);
-                }
-            );
-        } else {
-            const url = URL.createObjectURL(srcOrFile);
-            loader.load(
-                url,
-                (gltf) => {
-                    onModelLoaded(gltf, srcOrFile.name);
-                    URL.revokeObjectURL(url);
-                },
-                undefined,
-                (err) => {
-                    console.error(err);
-                    URL.revokeObjectURL(url);
-                    setStatus("Failed to load file", true);
-                }
-            );
-        }
-    }
-
-    function onModelLoaded(gltf, sourceLabel) {
-        model = gltf.scene || gltf.scenes[0];
-        if (!model) {
-            setStatus("Model loaded but no scene found", true);
-            return;
-        }
-
-        model.traverse((child) => {
-            if (child.isMesh) {
-                child.castShadow = true;
-                child.receiveShadow = true;
-                const mats = Array.isArray(child.material)
-                    ? child.material
-                    : [child.material];
-                mats.forEach((m) => {
-                    if (m && m.color) {
-                        m.color.convertSRGBToLinear();
-                    }
-                });
-            }
-        });
-
-        scene.add(model);
-        fitCameraToObject(model);
-        updateStats(model);
-        setWireframe(wireframeEnabled);
-        setShadows(document.getElementById("shadowToggle").checked);
-
-        fileNameEl.textContent =
-            typeof sourceLabel === "string" ? sourceLabel : "model.glb";
-        modelTitleEl.textContent = "Design: " + sourceLabel;
-        setStatus("Loaded");
-    }
-
-    document.getElementById("fileInput").addEventListener("change", (e) => {
-        const file = e.target.files[0];
-        if (!file) return;
-        if (!file.name.match(/\.(glb|gltf)$/i)) {
-            setStatus("Only .glb / .gltf supported here", true);
-            return;
-        }
-        loadGLB(file);
-    });
-
-    document.getElementById("resetViewBtn").addEventListener("click", () => {
-        if (!model) return;
-        autoRotate = false;
-        document.getElementById("autoRotateBtn").classList.remove("active");
-        fitCameraToObject(model);
-        setStatus("View reset");
-    });
-
-    document.getElementById("autoRotateBtn").addEventListener("click", (e) => {
-        autoRotate = !autoRotate;
-        e.currentTarget.classList.toggle("active", autoRotate);
-        setStatus(autoRotate ? "Auto-rotate on" : "Auto-rotate off");
-    });
-
-    document.getElementById("wireframeBtn").addEventListener("click", (e) => {
-        wireframeEnabled = !wireframeEnabled;
-        setWireframe(wireframeEnabled);
-        e.currentTarget.classList.toggle("active", wireframeEnabled);
-        setStatus(wireframeEnabled ? "Wireframe enabled" : "Wireframe disabled");
-    });
-
-    document.getElementById("bgToggleBtn").addEventListener("click", () => {
-        setBackground(!darkBg);
-        setStatus("Background toggled");
-    });
-
-    document.getElementById("gridToggle").addEventListener("change", (e) => {
-        setGrid(e.target.checked);
-    });
-
-    document.getElementById("shadowToggle").addEventListener("change", (e) => {
-        setShadows(e.target.checked);
-    });
-
-    init();
+<!-- FIX: Import map so "three" resolves properly -->
+<script type="importmap">
+{
+  "imports": {
+    "three": "https://cdn.jsdelivr.net/npm/three@0.165.0/build/three.module.js"
+  }
+}
 </script>
+
+<!-- MAIN MODULE SCRIPT -->
+<script type="module">
+import * as THREE from "three";
+import { GLTFLoader } from "https://cdn.jsdelivr.net/npm/three@0.165.0/examples/jsm/loaders/GLTFLoader.js";
+import { OrbitControls } from "https://cdn.jsdelivr.net/npm/three@0.165.0/examples/jsm/controls/OrbitControls.js";
+
+let scene, camera, renderer, controls;
+let model = null;
+let gridHelper = null;
+let floorMesh = null;
+let dirLight = null;
+let autoRotate = false;
+let wireframeEnabled = false;
+let darkBg = true;
+
+const canvas = document.getElementById("viewer-canvas");
+const statusText = document.getElementById("statusText");
+const fileNameEl = document.getElementById("fileName");
+const boundsLabel = document.getElementById("boundsLabel");
+const trianglesLabel = document.getElementById("trianglesLabel");
+const errorText = document.getElementById("errorText");
+const polyCountEl = document.getElementById("polyCount");
+const envLabel = document.getElementById("envLabel");
+const modelTitleEl = document.getElementById("modelTitle");
+
+function setStatus(msg, isError = false) {
+  statusText.textContent = msg;
+  errorText.style.display = isError ? "block" : "none";
+  errorText.textContent = isError ? msg : "";
+}
+
+function init() {
+  scene = new THREE.Scene();
+
+  const aspect = canvas.clientWidth / canvas.clientHeight;
+  camera = new THREE.PerspectiveCamera(45, aspect, 0.1, 5000);
+  camera.position.set(150, 120, 150);
+
+  renderer = new THREE.WebGLRenderer({
+    canvas,
+    antialias: true,
+    alpha: true,
+  });
+  renderer.setPixelRatio(window.devicePixelRatio || 1);
+  renderer.setSize(canvas.clientWidth, canvas.clientHeight, false);
+  renderer.outputEncoding = THREE.sRGBEncoding;
+  renderer.shadowMap.enabled = true;
+
+  const hemiLight = new THREE.HemisphereLight(0xffffff, 0x101020, 0.8);
+  hemiLight.position.set(0, 200, 0);
+  scene.add(hemiLight);
+
+  dirLight = new THREE.DirectionalLight(0xffffff, 1.1);
+  dirLight.position.set(140, 180, 90);
+  dirLight.castShadow = true;
+  scene.add(dirLight);
+
+  const floorGeo = new THREE.PlaneGeometry(1000, 1000);
+  const floorMat = new THREE.ShadowMaterial({ opacity: 0.28 });
+  floorMesh = new THREE.Mesh(floorGeo, floorMat);
+  floorMesh.rotation.x = -Math.PI / 2;
+  floorMesh.receiveShadow = true;
+  scene.add(floorMesh);
+
+  gridHelper = new THREE.GridHelper(600, 60, 0x4c5eff, 0x22294a);
+  scene.add(gridHelper);
+
+  controls = new OrbitControls(camera, renderer.domElement);
+  controls.enableDamping = true;
+  controls.target.set(0, 60, 0);
+
+  setBackground(true);
+  window.addEventListener("resize", onWindowResize);
+  animate();
+
+  loadGLB("models/model.glb");
+}
+
+function onWindowResize() {
+  camera.aspect = canvas.clientWidth / canvas.clientHeight;
+  camera.updateProjectionMatrix();
+  renderer.setSize(canvas.clientWidth, canvas.clientHeight);
+}
+
+function setBackground(isDark) {
+  darkBg = isDark;
+  const viewerPanel = document.querySelector(".viewer-panel");
+  viewerPanel.style.background = isDark
+    ? "radial-gradient(circle at top, #171c3b 0, #050713 45%, #02030a 100%)"
+    : "radial-gradient(circle at top, #e6edf8 0, #aebad1 40%, #7c879a 100%)";
+}
+
+function animate() {
+  requestAnimationFrame(animate);
+
+  if (autoRotate && model) model.rotation.y += 0.005;
+
+  controls.update();
+  renderer.render(scene, camera);
+}
+
+function clearModel() {
+  if (!model) return;
+  scene.remove(model);
+  model = null;
+}
+
+function fitCameraToObject(object, offset = 1.4) {
+  const box = new THREE.Box3().setFromObject(object);
+  const size = new THREE.Vector3();
+  const center = new THREE.Vector3();
+  box.getSize(size);
+  box.getCenter(center);
+
+  const maxDim = Math.max(size.x, size.y, size.z);
+  const fov = camera.fov * (Math.PI / 180);
+  let cameraZ = Math.abs((maxDim / 2) / Math.tan(fov / 2)) * offset;
+
+  camera.position.set(center.x + cameraZ, center.y + cameraZ * 0.6, center.z + cameraZ);
+  controls.target.copy(center);
+}
+
+function updateStats(object) {
+  let count = 0;
+  object.traverse((child) => {
+    if (child.isMesh) {
+      const geom = child.geometry;
+      if (geom.index) count += geom.index.count / 3;
+      else count += geom.attributes.position.count / 3;
+    }
+  });
+
+  trianglesLabel.textContent = count.toLocaleString();
+  polyCountEl.textContent = count.toLocaleString();
+}
+
+function loadGLB(srcOrFile) {
+  setStatus("Loading model…");
+  clearModel();
+
+  const loader = new GLTFLoader();
+
+  loader.load(
+    srcOrFile,
+    (gltf) => onModelLoaded(gltf, srcOrFile),
+    undefined,
+    (err) => {
+      console.error(err);
+      setStatus("Failed to load model", true);
+    }
+  );
+}
+
+function onModelLoaded(gltf, name) {
+  model = gltf.scene;
+  scene.add(model);
+
+  modelTitleEl.textContent = "Design: " + name;
+  fileNameEl.textContent = name;
+
+  fitCameraToObject(model);
+  updateStats(model);
+
+  setStatus("Loaded");
+}
+
+document.getElementById("fileInput").addEventListener("change", (e) => {
+  const file = e.target.files[0];
+  if (!file) return;
+  if (!file.name.match(/\.(glb|gltf)$/i)) {
+    setStatus("Only .glb / .gltf supported", true);
+    return;
+  }
+
+  const url = URL.createObjectURL(file);
+  loadGLB(url);
+});
+
+document.getElementById("resetViewBtn").addEventListener("click", () => {
+  if (!model) return;
+  autoRotate = false;
+  fitCameraToObject(model);
+});
+
+document.getElementById("autoRotateBtn").addEventListener("click", (e) => {
+  autoRotate = !autoRotate;
+  e.target.classList.toggle("active", autoRotate);
+});
+
+document.getElementById("wireframeBtn").addEventListener("click", (e) => {
+  wireframeEnabled = !wireframeEnabled;
+  e.target.classList.toggle("active", wireframeEnabled);
+
+  if (model) {
+    model.traverse((child) => {
+      if (child.isMesh) child.material.wireframe = wireframeEnabled;
+    });
+  }
+});
+
+document.getElementById("bgToggleBtn").addEventListener("click", () => {
+  setBackground(!darkBg);
+});
+
+document.getElementById("gridToggle").addEventListener("change", (e) => {
+  gridHelper.visible = e.target.checked;
+});
+
+document.getElementById("shadowToggle").addEventListener("change", (e) => {
+  dirLight.castShadow = e.target.checked;
+});
+
+init();
+</script>
+
+</body>
+</html>
