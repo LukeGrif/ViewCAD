@@ -48,20 +48,21 @@
             letter-spacing: 0.4px;
         }
 
-.sidebar {
-    width: 260px;
-    position: absolute;
-    top: 118px; /* moved down so it doesn't cover the toggle */
-    left: 12px;
-    background: rgba(255, 255, 255, 0.45);
-    backdrop-filter: blur(12px);
-    border-radius: 14px;
-    padding: 15px 18px 16px 18px;
-    border: 1px solid rgba(120, 130, 150, 0.35);
-    box-shadow: 0 8px 25px rgba(0, 0, 0, 0.15);
-    z-index: 15;
-    transition: transform 0.25s ease, opacity 0.25s ease;
-}
+        .sidebar {
+            width: 260px;
+            position: absolute;
+            top: 118px;
+            /* moved down so it doesn't cover the toggle */
+            left: 12px;
+            background: rgba(255, 255, 255, 0.45);
+            backdrop-filter: blur(12px);
+            border-radius: 14px;
+            padding: 15px 18px 16px 18px;
+            border: 1px solid rgba(120, 130, 150, 0.35);
+            box-shadow: 0 8px 25px rgba(0, 0, 0, 0.15);
+            z-index: 15;
+            transition: transform 0.25s ease, opacity 0.25s ease;
+        }
 
 
 
@@ -268,8 +269,8 @@
 
         /* ---------- CONFIG: LIST YOUR GLB FILES HERE ---------- */
         const MODELS = [
-            { id: "default", label: "Default Model", path: "models/model.glb" },
-            { id: "alt1", label: "Model 2", path: "models/model2.glb" },
+            { id: "default", label: "Default Model", path: "models/DCG_PartA.glb" },
+            { id: "alt1", label: "Model 2", path: "models/DCG_PartB.glb" },
             { id: "alt2", label: "Model 3", path: "models/Assembly.glb" }
         ];
 
@@ -505,11 +506,6 @@
 
         function onModelLoaded(gltf, src, displayName) {
             model = gltf.scene;
-
-            // 🔁 ORIENTATION FIX – flip model (adjust sign if wrong direction)
-            model.rotation.x = Math.PI / 2;
-
-            // 🔧 MATERIAL / NORMALS FIX – make both sides visible & smooth lighting
             model.traverse((child) => {
                 if (child.isMesh) {
                     const geom = child.geometry;
