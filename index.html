@@ -1,620 +1,71 @@
 <!DOCTYPE html>
 <html lang="en">
-
 <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>CRIS CAD Viewer</title>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>CRIS CAD Viewer</title>
 
-    <style>
-        /* ---------- GLOBAL ---------- */
-        body {
-            margin: 0;
-            overflow: hidden;
-            background: #e9edf3;
-            font-family: "Inter", Arial, sans-serif;
-            color: #1b1b1c;
-        }
+  <!-- CSS now in /css -->
+  <link rel="stylesheet" href="css/styles.css" />
 
-        a {
-            color: inherit;
-            text-decoration: none;
-        }
-
-        /* ---------- TOP NAVBAR ---------- */
-        .topbar {
-            position: absolute;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 62px;
-            background: rgba(245, 245, 255, 0.5);
-            backdrop-filter: blur(14px);
-            border-bottom: 1px solid rgba(140, 148, 170, 0.4);
-            display: flex;
-            align-items: center;
-            padding: 0 20px;
-            z-index: 20;
-        }
-
-        .topbar img {
-            height: 42px;
-            margin-right: 15px;
-        }
-
-        .topbar-title {
-            font-size: 22px;
-            font-weight: 600;
-            letter-spacing: 0.4px;
-        }
-
-        .sidebar {
-            width: 260px;
-            position: absolute;
-            top: 118px;
-            /* moved down so it doesn't cover the toggle */
-            left: 12px;
-            background: rgba(255, 255, 255, 0.45);
-            backdrop-filter: blur(12px);
-            border-radius: 14px;
-            padding: 15px 18px 16px 18px;
-            border: 1px solid rgba(120, 130, 150, 0.35);
-            box-shadow: 0 8px 25px rgba(0, 0, 0, 0.15);
-            z-index: 15;
-            transition: transform 0.25s ease, opacity 0.25s ease;
-        }
-
-
-
-        /* Collapsed state: slide sidebar off-screen and disable interaction */
-        .sidebar.collapsed {
-            transform: translateX(-280px);
-            opacity: 0;
-            pointer-events: none;
-        }
-
-        .sidebar h2 {
-            margin-top: 0;
-            font-size: 17px;
-            margin-bottom: 10px;
-            font-weight: 600;
-        }
-
-        .sidebar h3 {
-            font-size: 14px;
-            margin: 14px 0 6px 0;
-            font-weight: 600;
-            opacity: 0.9;
-        }
-
-        .sidebar label {
-            display: block;
-            margin-top: 6px;
-            font-size: 13px;
-            opacity: 0.9;
-        }
-
-        .sidebar label span {
-            float: right;
-            opacity: 0.9;
-        }
-
-        /* ---------- BUTTONS (SIDEBAR ONLY) ---------- */
-        .sidebar button {
-            width: 100%;
-            margin-top: 8px;
-            padding: 9px 10px;
-            font-size: 13px;
-            background: #e0e3ec;
-            border: 1px solid #7f889f;
-            border-radius: 8px;
-            cursor: pointer;
-            transition: 0.18s ease;
-        }
-
-        .sidebar button:hover {
-            background: #cfd6e5;
-            transform: translateY(-1px);
-        }
-
-        .sidebar button.active {
-            background: #4c5eff;
-            color: white;
-            border-color: #2830cc;
-        }
-
-        /* ---------- SIDEBAR TOGGLE BUTTON ---------- */
-        #sidebarToggleBtn {
-            position: absolute;
-            top: 78px;
-            left: 12px;
-            z-index: 21;
-            padding: 6px 10px;
-            border-radius: 999px;
-            border: 1px solid rgba(120, 130, 150, 0.6);
-            background: rgba(255, 255, 255, 0.85);
-            backdrop-filter: blur(10px);
-            cursor: pointer;
-            font-size: 14px;
-            display: flex;
-            align-items: center;
-            gap: 6px;
-        }
-
-        #sidebarToggleBtn span.label {
-            font-size: 12px;
-        }
-
-        /* ---------- MODEL LIST ---------- */
-        .model-buttons {
-            display: flex;
-            flex-direction: column;
-            gap: 6px;
-            margin-top: 4px;
-        }
-
-        .model-buttons button {
-            width: 100%;
-            text-align: left;
-            font-size: 13px;
-            background: #f2f4fb;
-        }
-
-        .model-buttons button.active {
-            background: #4c5eff;
-            color: #fff;
-        }
-
-        /* ---------- TOGGLES ---------- */
-        .sidebar input[type="checkbox"] {
-            transform: scale(1.1);
-            margin-right: 6px;
-            cursor: pointer;
-        }
-
-        /* ---------- CANVAS ---------- */
-        #viewer-canvas {
-            width: 100%;
-            height: 100vh;
-            display: block;
-        }
-
-        .viewer-panel {
-            position: absolute;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background: radial-gradient(circle at top, #fafcff 0, #dfe4ee 40%, #c7ced9 100%);
-        }
-
-        /* ---------- ERROR TEXT ---------- */
-        #errorText {
-            display: none;
-            color: #dd2222;
-            font-weight: 600;
-            margin-top: 4px;
-        }
-
-        /* Small spacing before file input */
-        #fileInput {
-            margin-top: 8px;
-            width: 100%;
-        }
-    </style>
+  <!-- Import map for Three.js -->
+  <script type="importmap">
+  {
+    "imports": {
+      "three": "https://cdn.jsdelivr.net/npm/three@0.165.0/build/three.module.js"
+    }
+  }
+  </script>
 </head>
 
 <body>
-
-    <!-- TOPBAR WITH LOGO -->
-    <div class="topbar">
-        <img src="cris.png" alt="Cris Logo">
-        <div class="topbar-title">CRIS CAD Viewer</div>
-    </div>
-
-    <!-- TOGGLE BUTTON FOR SIDEBAR -->
-    <button id="sidebarToggleBtn" aria-label="Toggle control panel" aria-expanded="true">
-        <span id="sidebarToggleIcon">☰</span>
-        <span class="label">Controls</span>
-    </button>
-
-    <!-- 3D Canvas -->
-    <div class="viewer-panel">
-        <canvas id="viewer-canvas"></canvas>
-    </div>
-
-    <!-- SIDEBAR -->
-    <div class="sidebar" id="sidebar">
-        <h2 id="modelTitle">Model Viewer</h2>
-
-        <label>Status <span id="statusText">Idle</span></label>
-        <label id="errorText"></label>
-
-        <label>File <span id="fileName">None</span></label>
-        <label>Bounds <span id="boundsLabel">-</span></label>
-        <label>Triangles <span id="trianglesLabel">-</span></label>
-        <label>Polygons <span id="polyCount">-</span></label>
-        <label>Environment <span id="envLabel">Daylight</span></label>
-
-        <h3>Models</h3>
-        <div id="modelButtons" class="model-buttons"></div>
-
-        <h3>View</h3>
-        <button id="resetViewBtn">Reset View</button>
-        <button id="autoRotateBtn">Auto Rotate</button>
-        <button id="wireframeBtn">Wireframe</button>
-        <button id="bgToggleBtn">Toggle Background</button>
-
-        <label><input type="checkbox" id="gridToggle"> Grid</label>
-        <label><input type="checkbox" id="shadowToggle"> Shadows</label>
-
-        <h3>Load Local</h3>
-        <input type="file" id="fileInput" accept=".glb,.gltf">
-    </div>
-
-    <!-- IMPORT MAP -->
-    <script type="importmap">
-{
-  "imports": {
-    "three": "https://cdn.jsdelivr.net/npm/three@0.165.0/build/three.module.js"
-  }
-}
-</script>
-
-    <!-- MAIN JS -->
-    <script type="module">
-        import * as THREE from "three";
-        import { OrbitControls } from "https://cdn.jsdelivr.net/npm/three@0.165.0/examples/jsm/controls/OrbitControls.js";
-        import { GLTFLoader } from "https://cdn.jsdelivr.net/npm/three@0.165.0/examples/jsm/loaders/GLTFLoader.js";
-
-        /* ---------- CONFIG: LIST YOUR GLB FILES HERE ---------- */
-        const MODELS = [
-            { id: "default", label: "DCG Project Part A", path: "models/DCG_PartA.glb" },
-            { id: "alt1", label: "DCG Project Part B", path: "models/DCG_PartB.glb" },
-        ];
-
-        let scene, camera, renderer, controls;
-        let model = null;
-        let gridHelper = null;
-        let floorMesh = null;
-        let dirLight = null;
-        let autoRotate = false;
-        let wireframeEnabled = false;
-        let darkBg = false; // LIGHT MODE DEFAULT
-        let activeModelId = null;
-
-        const canvas = document.getElementById("viewer-canvas");
-        const statusText = document.getElementById("statusText");
-        const fileNameEl = document.getElementById("fileName");
-        const boundsLabel = document.getElementById("boundsLabel");
-        const trianglesLabel = document.getElementById("trianglesLabel");
-        const errorText = document.getElementById("errorText");
-        const polyCountEl = document.getElementById("polyCount");
-        const envLabel = document.getElementById("envLabel");
-        const modelTitleEl = document.getElementById("modelTitle");
-        const modelButtonsContainer = document.getElementById("modelButtons");
-        const sidebarEl = document.getElementById("sidebar");
-        const sidebarToggleBtn = document.getElementById("sidebarToggleBtn");
-        const sidebarToggleIcon = document.getElementById("sidebarToggleIcon");
-
-        function setStatus(msg, isError = false) {
-            statusText.textContent = msg;
-            errorText.style.display = isError ? "block" : "none";
-            errorText.textContent = isError ? msg : "";
-        }
-
-        /* ---------- INIT MODEL MENU ---------- */
-        function initModelMenu() {
-            modelButtonsContainer.innerHTML = "";
-            MODELS.forEach((m) => {
-                const btn = document.createElement("button");
-                btn.textContent = m.label;
-                btn.dataset.modelId = m.id;
-                btn.addEventListener("click", () => {
-                    loadModelFromMenu(m);
-                });
-                modelButtonsContainer.appendChild(btn);
-            });
-        }
-
-        function clearModelButtonActive() {
-            const buttons = modelButtonsContainer.querySelectorAll("button");
-            buttons.forEach((b) => b.classList.remove("active"));
-        }
-
-        function setModelButtonActive(modelId) {
-            activeModelId = modelId;
-            clearModelButtonActive();
-            const btn = modelButtonsContainer.querySelector(
-                `button[data-model-id="${modelId}"]`
-            );
-            if (btn) btn.classList.add("active");
-        }
-
-        function loadModelFromMenu(modelDef) {
-            autoRotate = false;
-            document.getElementById("autoRotateBtn").classList.remove("active");
-            loadGLB(modelDef.path, modelDef.label);
-            setModelButtonActive(modelDef.id);
-        }
-
-        /* ---------- SCENE SETUP ---------- */
-        function init() {
-            scene = new THREE.Scene();
-
-            const aspect = canvas.clientWidth / canvas.clientHeight;
-            camera = new THREE.PerspectiveCamera(45, aspect, 0.1, 5000);
-            camera.position.set(150, 120, 150);
-
-            renderer = new THREE.WebGLRenderer({
-                canvas,
-                antialias: true,
-                alpha: true,
-            });
-            renderer.setPixelRatio(window.devicePixelRatio || 1);
-            renderer.setSize(canvas.clientWidth, canvas.clientHeight, false);
-            renderer.outputEncoding = THREE.sRGBEncoding;
-            renderer.shadowMap.enabled = false; // SHADOWS DEFAULT OFF
-
-            // === SIZE-INVARIANT, EVEN CAD LIGHTING ===
-
-            // Strong global ambient: most of the look comes from this.
-            // This makes big and small models appear similarly bright.
-            const amb = new THREE.AmbientLight(0xffffff, 1.8);
-            scene.add(amb);
-
-            // Hemisphere light: soft sky + ground, keeps top and bottom from going dead.
-            const hemi = new THREE.HemisphereLight(0xffffff, 0xffffff, 1.2);
-            hemi.position.set(0, 1, 0);
-            scene.add(hemi);
-
-            // 8-way directional fill around the model.
-            // Directional lights in Three.js do NOT fade with distance, only direction matters,
-            // so we keep them unit-length and rely on ambient for most brightness.
-            const DIR_INTENSITY = 0.35;
-            const dirs = [
-                [1, 1, 1],
-                [-1, 1, 1],
-                [1, 1, -1],
-                [-1, 1, -1],
-                [1, -1, 1],
-                [-1, -1, 1],
-                [1, -1, -1],
-                [-1, -1, -1],
-            ];
-
-            dirs.forEach(([x, y, z]) => {
-                const dl = new THREE.DirectionalLight(0xffffff, DIR_INTENSITY);
-                dl.position.set(x, y, z);
-                scene.add(dl);
-            });
-
-            // Keep a "main" light reference for your shadows toggle logic.
-            // We just pick one of the directionals as the "dirLight".
-            dirLight = new THREE.DirectionalLight(0xffffff, 0.6);
-            dirLight.position.set(2, 3, 2);
-            dirLight.castShadow = false;
-            scene.add(dirLight);
-
-
-
-
-            const floorGeo = new THREE.PlaneGeometry(1000, 1000);
-            const floorMat = new THREE.ShadowMaterial({ opacity: 0.0 });
-            floorMesh = new THREE.Mesh(floorGeo, floorMat);
-            floorMesh.rotation.x = -Math.PI / 2;
-            floorMesh.receiveShadow = false;
-            scene.add(floorMesh);
-
-            gridHelper = new THREE.GridHelper(600, 60, 0x777777, 0xcccccc);
-            gridHelper.visible = false; // GRID DEFAULT OFF
-            scene.add(gridHelper);
-
-            controls = new OrbitControls(camera, renderer.domElement);
-            controls.enableDamping = true;
-            controls.dampingFactor = 0.06;
-            controls.autoRotate = false;
-            controls.autoRotateSpeed = 1.5;
-            controls.target.set(0, 60, 0);
-
-            setBackground(false);
-            window.addEventListener("resize", onWindowResize);
-            animate();
-
-            initModelMenu();
-            if (MODELS.length > 0) {
-                loadModelFromMenu(MODELS[0]);
-            }
-        }
-
-        function onWindowResize() {
-            camera.aspect = canvas.clientWidth / canvas.clientHeight;
-            camera.updateProjectionMatrix();
-            renderer.setSize(canvas.clientWidth, canvas.clientHeight);
-        }
-
-        function setBackground(isDark) {
-            darkBg = isDark;
-            const viewerPanel = document.querySelector(".viewer-panel");
-
-            if (isDark) {
-                viewerPanel.style.background =
-                    "radial-gradient(circle at top, #171c3b 0, #050713 45%, #02030a 100%)";
-                envLabel.textContent = "Studio";
-            } else {
-                viewerPanel.style.background =
-                    "radial-gradient(circle at top, #fafcff 0, #dfe4ee 40%, #c7ced9 100%)";
-                envLabel.textContent = "Daylight";
-            }
-        }
-
-        function animate() {
-            requestAnimationFrame(animate);
-            controls.autoRotate = autoRotate;
-            controls.update();
-            renderer.render(scene, camera);
-        }
-
-        function clearModel() {
-            if (!model) return;
-            scene.remove(model);
-            model = null;
-        }
-
-        function fitCameraToObject(object, offset = 1.4) {
-            const box = new THREE.Box3().setFromObject(object);
-            const size = new THREE.Vector3();
-            const center = new THREE.Vector3();
-            box.getSize(size);
-            box.getCenter(center);
-
-            const maxDim = Math.max(size.x, size.y, size.z);
-            const fov = camera.fov * (Math.PI / 180);
-            let cameraZ = Math.abs((maxDim / 2) / Math.tan(fov / 2)) * offset;
-
-            camera.position.set(center.x + cameraZ, center.y + cameraZ * 0.6, center.z + cameraZ);
-            controls.target.copy(center);
-        }
-
-        function updateStats(object) {
-            let count = 0;
-            object.traverse((child) => {
-                if (child.isMesh) {
-                    const geom = child.geometry;
-                    if (geom.index) count += geom.index.count / 3;
-                    else count += geom.attributes.position.count / 3;
-                }
-            });
-
-            trianglesLabel.textContent = count.toLocaleString();
-            polyCountEl.textContent = count.toLocaleString();
-        }
-
-        function loadGLB(src, displayName = null) {
-            setStatus("Loading model…");
-            clearModel();
-            clearModelButtonActive();
-
-            const loader = new GLTFLoader();
-            loader.load(
-                src,
-                (gltf) => onModelLoaded(gltf, src, displayName),
-                undefined,
-                (err) => {
-                    console.error(err);
-                    setStatus("Failed to load model", true);
-                }
-            );
-        }
-
-        function onModelLoaded(gltf, src, displayName) {
-            model = gltf.scene;
-            model.traverse((child) => {
-                if (child.isMesh) {
-                    const geom = child.geometry;
-                    if (geom && geom.computeVertexNormals) {
-                        geom.computeVertexNormals();
-                    }
-
-                    const mats = Array.isArray(child.material)
-                        ? child.material
-                        : [child.material];
-
-                    mats.forEach((m) => {
-                        if (!m) return;
-                        // Make sure backfaces are rendered – no more black underside
-                        m.side = THREE.DoubleSide;
-
-                        // Don't mess with color space here; GLTFLoader already handles it
-                        m.needsUpdate = true;
-                    });
-                }
-            });
-
-            scene.add(model);
-
-            const nameLabel = displayName || src;
-            modelTitleEl.textContent = "Design: " + nameLabel;
-            fileNameEl.textContent = src;
-
-            fitCameraToObject(model);
-            updateStats(model);
-
-            setStatus("Loaded");
-        }
-
-        /* ---------- UI BINDINGS ---------- */
-        document.getElementById("fileInput").addEventListener("change", (e) => {
-            const file = e.target.files[0];
-            if (!file) return;
-            if (!file.name.match(/\.(glb|gltf)$/i)) {
-                setStatus("Only .glb / .gltf supported", true);
-                return;
-            }
-
-            const url = URL.createObjectURL(file);
-            autoRotate = false;
-            document.getElementById("autoRotateBtn").classList.remove("active");
-            loadGLB(url, file.name);
-        });
-
-        document.getElementById("resetViewBtn").addEventListener("click", () => {
-            if (!model) return;
-            autoRotate = false;
-            document.getElementById("autoRotateBtn").classList.remove("active");
-            fitCameraToObject(model);
-        });
-
-        document.getElementById("autoRotateBtn").addEventListener("click", (e) => {
-            autoRotate = !autoRotate;
-            e.target.classList.toggle("active", autoRotate);
-        });
-
-        document.getElementById("wireframeBtn").addEventListener("click", (e) => {
-            wireframeEnabled = !wireframeEnabled;
-            e.target.classList.toggle("active", wireframeEnabled);
-
-            if (model) {
-                model.traverse((child) => {
-                    if (child.isMesh && child.material) {
-                        const mats = Array.isArray(child.material)
-                            ? child.material
-                            : [child.material];
-                        mats.forEach((m) => {
-                            if (!m) return;
-                            if ("wireframe" in m) m.wireframe = wireframeEnabled;
-                        });
-                    }
-                });
-            }
-        });
-
-        document.getElementById("bgToggleBtn").addEventListener("click", () => {
-            setBackground(!darkBg);
-        });
-
-        document.getElementById("gridToggle").addEventListener("change", (e) => {
-            if (gridHelper) gridHelper.visible = e.target.checked;
-        });
-
-        document.getElementById("shadowToggle").addEventListener("change", (e) => {
-            const on = e.target.checked;
-            dirLight.castShadow = on;
-            renderer.shadowMap.enabled = on;
-            floorMesh.receiveShadow = on;
-        });
-
-        /* ---------- SIDEBAR TOGGLE LOGIC ---------- */
-        sidebarToggleBtn.addEventListener("click", () => {
-            const isCollapsed = sidebarEl.classList.toggle("collapsed");
-            // Update aria state and icon
-            sidebarToggleBtn.setAttribute("aria-expanded", (!isCollapsed).toString());
-            sidebarToggleIcon.textContent = isCollapsed ? "▶" : "☰";
-        });
-
-        init();
-    </script>
-
+  <!-- TOPBAR WITH LOGO -->
+  <div class="topbar">
+    <img src="cris.png" alt="Cris Logo" />
+    <div class="topbar-title">CRIS CAD Viewer</div>
+  </div>
+
+  <!-- TOGGLE BUTTON FOR SIDEBAR -->
+  <button id="sidebarToggleBtn" aria-label="Toggle control panel" aria-expanded="true">
+    <span id="sidebarToggleIcon">☰</span>
+    <span class="label">Controls</span>
+  </button>
+
+  <!-- 3D Canvas -->
+  <div class="viewer-panel">
+    <canvas id="viewer-canvas"></canvas>
+  </div>
+
+  <!-- SIDEBAR -->
+  <div class="sidebar" id="sidebar">
+    <h2 id="modelTitle">Model Viewer</h2>
+
+    <label>Status <span id="statusText">Idle</span></label>
+    <label id="errorText"></label>
+
+    <label>File <span id="fileName">None</span></label>
+    <label>Bounds <span id="boundsLabel">-</span></label>
+    <label>Triangles <span id="trianglesLabel">-</span></label>
+    <label>Polygons <span id="polyCount">-</span></label>
+    <label>Environment <span id="envLabel">Daylight</span></label>
+
+    <h3>Models</h3>
+    <div id="modelButtons" class="model-buttons"></div>
+
+    <h3>View</h3>
+    <button id="resetViewBtn">Reset View</button>
+    <button id="autoRotateBtn">Auto Rotate</button>
+    <button id="wireframeBtn">Wireframe</button>
+    <button id="bgToggleBtn">Toggle Background</button>
+
+    <label><input type="checkbox" id="gridToggle" /> Grid</label>
+    <label><input type="checkbox" id="shadowToggle" /> Shadows</label>
+
+    <h3>Load Local</h3>
+    <input type="file" id="fileInput" accept=".glb,.gltf" />
+  </div>
+
+  <!-- Main application module now in /js -->
+  <script type="module" src="js/main.js"></script>
 </body>
-
 </html>
