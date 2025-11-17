@@ -356,46 +356,54 @@
             renderer.outputEncoding = THREE.sRGBEncoding;
             renderer.shadowMap.enabled = false; // SHADOWS DEFAULT OFF
 
-            // === BRIGHT, EVEN LIGHTING SETUP ===
+            // === WIDE, FAR-DISTANCE CAD LIGHTING ===
 
-// === EVEN BRIGHT 360° LIGHTING FOR CAD MODELS ===
+            // Strong ambient to ensure all surfaces receive base light
+            const amb = new THREE.AmbientLight(0xffffff, 1.4);
+            scene.add(amb);
 
-// Strong global ambient
-const amb = new THREE.AmbientLight(0xffffff, 1.4);
-scene.add(amb);
+            // Hemisphere: sky + ground lighting to remove top/bottom darkness
+            const hemi = new THREE.HemisphereLight(0xffffff, 0xffffff, 0.9);
+            hemi.position.set(0, 5000, 0);
+            scene.add(hemi);
 
-// Sky + ground light to remove top/bottom darkness
-const hemi = new THREE.HemisphereLight(0xffffff, 0xffffff, 1.0);
-hemi.position.set(0, 1, 0);
-scene.add(hemi);
+            // Directional lights pushed MUCH farther out
+            // This creates very "wide" illumination like a CAD renderer
+            const FAR = 5000;   // <-- Increase to 8000+ if you want it even softer
+            const INTENSITY = 0.55;
 
-// 8-direction lighting cube fully surrounding the model
-const lightPositions = [
-    [300, 300, 300],
-    [-300, 300, 300],
-    [300, 300, -300],
-    [-300, 300, -300],
-    [300, -300, 300],
-    [-300, -300, 300],
-    [300, -300, -300],
-    [-300, -300, -300],
-];
+            const farLights = [
+                [FAR, FAR, FAR],
+                [-FAR, FAR, FAR],
+                [FAR, FAR, -FAR],
+                [-FAR, FAR, -FAR],
+                [FAR, -FAR, FAR],
+                [-FAR, -FAR, FAR],
+                [FAR, -FAR, -FAR],
+                [-FAR, -FAR, -FAR],
+            ];
 
-lightPositions.forEach(([x, y, z]) => {
-    const dl = new THREE.DirectionalLight(0xffffff, 0.55);
-    dl.position.set(x, y, z);
-    scene.add(dl);
-});
+            farLights.forEach(([x, y, z]) => {
+                const dl = new THREE.DirectionalLight(0xffffff, INTENSITY);
+                dl.position.set(x, y, z);
 
-// Key light (main)
-const key = new THREE.DirectionalLight(0xffffff, 0.8);
-key.position.set(200, 400, 200);
-scene.add(key);
+                // Wider & softer shadows
+                dl.shadow.radius = 12;
+                dl.shadow.bias = -0.00001;
 
-// Back rim light for edges
-const rim = new THREE.DirectionalLight(0xffffff, 0.6);
-rim.position.set(0, 300, -300);
-scene.add(rim);
+                scene.add(dl);
+            });
+
+            // Key light (very far)
+            const key = new THREE.DirectionalLight(0xffffff, 0.8);
+            key.position.set(FAR, FAR * 0.8, FAR);
+            scene.add(key);
+
+            // Rim light (for shape definition)
+            const rim = new THREE.DirectionalLight(0xffffff, 0.6);
+            rim.position.set(0, FAR, -FAR);
+            scene.add(rim);
+
 
 
             const floorGeo = new THREE.PlaneGeometry(1000, 1000);
