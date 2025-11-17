@@ -48,19 +48,28 @@
             letter-spacing: 0.4px;
         }
 
-        /* ---------- SIDEBAR PANEL ---------- */
-        .sidebar {
-            width: 260px;
-            position: absolute;
-            top: 78px;
-            left: 12px;
-            background: rgba(255, 255, 255, 0.45);
-            backdrop-filter: blur(12px);
-            border-radius: 14px;
-            padding: 15px 18px 16px 18px;
-            border: 1px solid rgba(120, 130, 150, 0.35);
-            box-shadow: 0 8px 25px rgba(0, 0, 0, 0.15);
-            z-index: 15;
+.sidebar {
+    width: 260px;
+    position: absolute;
+    top: 118px; /* moved down so it doesn't cover the toggle */
+    left: 12px;
+    background: rgba(255, 255, 255, 0.45);
+    backdrop-filter: blur(12px);
+    border-radius: 14px;
+    padding: 15px 18px 16px 18px;
+    border: 1px solid rgba(120, 130, 150, 0.35);
+    box-shadow: 0 8px 25px rgba(0, 0, 0, 0.15);
+    z-index: 15;
+    transition: transform 0.25s ease, opacity 0.25s ease;
+}
+
+
+
+        /* Collapsed state: slide sidebar off-screen and disable interaction */
+        .sidebar.collapsed {
+            transform: translateX(-280px);
+            opacity: 0;
+            pointer-events: none;
         }
 
         .sidebar h2 {
@@ -89,8 +98,8 @@
             opacity: 0.9;
         }
 
-        /* ---------- BUTTONS ---------- */
-        button {
+        /* ---------- BUTTONS (SIDEBAR ONLY) ---------- */
+        .sidebar button {
             width: 100%;
             margin-top: 8px;
             padding: 9px 10px;
@@ -102,15 +111,37 @@
             transition: 0.18s ease;
         }
 
-        button:hover {
+        .sidebar button:hover {
             background: #cfd6e5;
             transform: translateY(-1px);
         }
 
-        button.active {
+        .sidebar button.active {
             background: #4c5eff;
             color: white;
             border-color: #2830cc;
+        }
+
+        /* ---------- SIDEBAR TOGGLE BUTTON ---------- */
+        #sidebarToggleBtn {
+            position: absolute;
+            top: 78px;
+            left: 12px;
+            z-index: 21;
+            padding: 6px 10px;
+            border-radius: 999px;
+            border: 1px solid rgba(120, 130, 150, 0.6);
+            background: rgba(255, 255, 255, 0.85);
+            backdrop-filter: blur(10px);
+            cursor: pointer;
+            font-size: 14px;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        #sidebarToggleBtn span.label {
+            font-size: 12px;
         }
 
         /* ---------- MODEL LIST ---------- */
@@ -180,13 +211,19 @@
         <div class="topbar-title">CRIS CAD Viewer</div>
     </div>
 
+    <!-- TOGGLE BUTTON FOR SIDEBAR -->
+    <button id="sidebarToggleBtn" aria-label="Toggle control panel" aria-expanded="true">
+        <span id="sidebarToggleIcon">☰</span>
+        <span class="label">Controls</span>
+    </button>
+
     <!-- 3D Canvas -->
     <div class="viewer-panel">
         <canvas id="viewer-canvas"></canvas>
     </div>
 
     <!-- SIDEBAR -->
-    <div class="sidebar">
+    <div class="sidebar" id="sidebar">
         <h2 id="modelTitle">Model Viewer</h2>
 
         <label>Status <span id="statusText">Idle</span></label>
@@ -256,6 +293,9 @@
         const envLabel = document.getElementById("envLabel");
         const modelTitleEl = document.getElementById("modelTitle");
         const modelButtonsContainer = document.getElementById("modelButtons");
+        const sidebarEl = document.getElementById("sidebar");
+        const sidebarToggleBtn = document.getElementById("sidebarToggleBtn");
+        const sidebarToggleIcon = document.getElementById("sidebarToggleIcon");
 
         function setStatus(msg, isError = false) {
             statusText.textContent = msg;
@@ -563,6 +603,14 @@
             dirLight.castShadow = on;
             renderer.shadowMap.enabled = on;
             floorMesh.receiveShadow = on;
+        });
+
+        /* ---------- SIDEBAR TOGGLE LOGIC ---------- */
+        sidebarToggleBtn.addEventListener("click", () => {
+            const isCollapsed = sidebarEl.classList.toggle("collapsed");
+            // Update aria state and icon
+            sidebarToggleBtn.setAttribute("aria-expanded", (!isCollapsed).toString());
+            sidebarToggleIcon.textContent = isCollapsed ? "▶" : "☰";
         });
 
         init();
