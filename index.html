@@ -358,42 +358,45 @@
 
             // === BRIGHT, EVEN LIGHTING SETUP ===
 
-            // Main directional light (used for shadows toggle)
-            dirLight = new THREE.DirectionalLight(0xffffff, 1.4);
-            dirLight.position.set(200, 300, 200);
-            dirLight.castShadow = false;
-            dirLight.shadow.radius = 6;
-            dirLight.shadow.bias = -0.0002;
-            scene.add(dirLight);
+// === EVEN BRIGHT 360° LIGHTING FOR CAD MODELS ===
 
-            // Strong ambient so all faces get base light
-            const ambLight = new THREE.AmbientLight(0xffffff, 1.4);
-            scene.add(ambLight);
+// Strong global ambient
+const amb = new THREE.AmbientLight(0xffffff, 1.4);
+scene.add(amb);
 
-            // Hemisphere light: sky + ground lighting for top & bottom
-            const hemiLight = new THREE.HemisphereLight(0xffffff, 0xffffff, 0.9);
-            hemiLight.position.set(0, 1, 0);
-            scene.add(hemiLight);
+// Sky + ground light to remove top/bottom darkness
+const hemi = new THREE.HemisphereLight(0xffffff, 0xffffff, 1.0);
+hemi.position.set(0, 1, 0);
+scene.add(hemi);
 
-            // Key light
-            const key = new THREE.DirectionalLight(0xffffff, 1.0);
-            key.position.set(150, 250, 200);
-            scene.add(key);
+// 8-direction lighting cube fully surrounding the model
+const lightPositions = [
+    [300, 300, 300],
+    [-300, 300, 300],
+    [300, 300, -300],
+    [-300, 300, -300],
+    [300, -300, 300],
+    [-300, -300, 300],
+    [300, -300, -300],
+    [-300, -300, -300],
+];
 
-            // Fill light (opposite side)
-            const fill = new THREE.DirectionalLight(0xffffff, 0.8);
-            fill.position.set(-200, 150, -100);
-            scene.add(fill);
+lightPositions.forEach(([x, y, z]) => {
+    const dl = new THREE.DirectionalLight(0xffffff, 0.55);
+    dl.position.set(x, y, z);
+    scene.add(dl);
+});
 
-            // Rim light (back)
-            const rim = new THREE.DirectionalLight(0xffffff, 0.7);
-            rim.position.set(0, 220, -220);
-            scene.add(rim);
+// Key light (main)
+const key = new THREE.DirectionalLight(0xffffff, 0.8);
+key.position.set(200, 400, 200);
+scene.add(key);
 
-            // Bottom light to brighten underside of the model
-            const bottomLight = new THREE.DirectionalLight(0xffffff, 0.7);
-            bottomLight.position.set(0, -250, 0);
-            scene.add(bottomLight);
+// Back rim light for edges
+const rim = new THREE.DirectionalLight(0xffffff, 0.6);
+rim.position.set(0, 300, -300);
+scene.add(rim);
+
 
             const floorGeo = new THREE.PlaneGeometry(1000, 1000);
             const floorMat = new THREE.ShadowMaterial({ opacity: 0.0 });
